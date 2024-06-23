@@ -14,6 +14,12 @@ ZLMediaKit rust api
 
      - 参考链接：https://github.com/ZLMediaKit/ZLMediaKit/wiki/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B
 
+- 编译
+
+```shell
+cargo build
+```
+
 ### features
 
 - `dynamic`和`static`编译，目前只在 macos 下测试成功
