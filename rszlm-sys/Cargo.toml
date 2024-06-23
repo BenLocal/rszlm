@@ -2,8 +2,11 @@
 name = "rszlm-sys"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["shiben. <benshi0v0@gmail.com>"]
+description = "ZLMediaKit rust ffi api"
+repository = "https://github.com/BenLocal/rszlm"
+keywords = ["zlm", "zlmediakit", "rszlm", "rszlm-sys"]
+license = "MIT"
 
 [dependencies]
 openssl-sys = { version = "0.9", optional = true }
