@@ -85,6 +85,8 @@ fn build() -> io::Result<()> {
 
     #[cfg(feature = "webrtc")]
     cmd.arg("-DENABLE_WEBRTC=ON");
+    #[cfg(not(feature = "webrtc"))]
+    cmd.arg("-DENABLE_WEBRTC=OFF");
 
     cmd.arg("..").current_dir(&build_dir).status()?;
 
@@ -164,26 +166,68 @@ fn link_dynamic() {
     println!("cargo:rustc-link-lib=mk_api");
 }
 
-fn link_static() {
+fn link_static(zlm_link_path: &PathBuf) {
     //println!("cargo:rustc-link-lib=mk_api_static");
+    select_static_libs(zlm_link_path)
+        .unwrap()
+        .iter()
+        .for_each(|lib| {
+            println!("cargo:rustc-link-lib=static={}", lib);
+        });
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    if target_os == "macos" {
+        println!("cargo:rustc-link-lib=ssl");
+        println!("cargo:rustc-link-lib=crypto");
+        println!("cargo:rustc-link-lib=c++");
+        println!("cargo:rustc-link-lib=framework=Foundation");
+    } else if target_os == "linux" || target_os == "android" {
+        println!("cargo:rustc-link-lib=stdc++");
+    }
+}
+
+fn select_static_libs(zlm_link_path: &PathBuf) -> io::Result<Vec<String>> {
+    Ok(std::fs::read_dir(zlm_link_path)?
+        .into_iter()
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            if entry.file_type().unwrap().is_file() {
+                let file_name = entry.file_name();
+                let file_name = file_name.to_str().unwrap();
+                let extension = match env::var("CARGO_CFG_TARGET_OS").unwrap().as_str() {
+                    "windows" => Some(".lib"),
+                    "linux" | "macos" | "ios" | "android" => Some(".a"),
+                    _ => None,
+                };
+                if let Some(ext) = extension {
+                    if file_name.ends_with(ext) {
+                        let mut link_name = file_name.trim_end_matches(ext);
+                        if ext == ".a" {
+                            link_name = link_name.trim_start_matches("lib");
+                        }
+                        return Some(link_name.to_string());
+                    }
+                }
+                None
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>())
 }
 
 fn buildgen() {
     let is_static = is_static();
-    let search_type = if is_static { "static" } else { "native" };
 
-    let zlm_install_include = if env::var("ZLM_DIR").is_ok() {
+    let (zlm_install_include, zlm_install_lib) = if env::var("ZLM_DIR").is_ok() {
         let zlm_install = PathBuf::from(env::var("ZLM_DIR").unwrap());
         println!(
-            "cargo:rustc-link-search={}={}",
-            search_type,
+            "cargo:rustc-link-search=native={}",
             &zlm_install.join("lib").to_string_lossy()
         );
-        zlm_install.join("include")
+        (zlm_install.join("include"), zlm_install.join("lib"))
     } else {
         println!(
-            "cargo:rustc-link-search={}={}",
-            search_type,
+            "cargo:rustc-link-search=native={}",
             src_install_path().join("lib").to_string_lossy()
         );
 
@@ -191,12 +235,15 @@ fn buildgen() {
             build().unwrap();
         }
 
-        src_install_path().join("include")
+        (
+            src_install_path().join("include"),
+            src_install_path().join("lib"),
+        )
     };
 
     // link lib
     if is_static {
-        link_static();
+        link_static(&zlm_install_lib);
     } else {
         link_dynamic();
     }
