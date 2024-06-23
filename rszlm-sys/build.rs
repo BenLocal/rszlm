@@ -218,6 +218,8 @@ fn select_static_libs(zlm_link_path: &PathBuf) -> io::Result<Vec<String>> {
 fn buildgen() {
     let is_static = is_static();
 
+    find_libsrtp2();
+
     let (zlm_install_include, zlm_install_lib) = if env::var("ZLM_DIR").is_ok() {
         let zlm_install = PathBuf::from(env::var("ZLM_DIR").unwrap());
         println!(
@@ -259,4 +261,59 @@ fn buildgen() {
     bindings
         .write_to_file(out_dir().join("bindings.rs"))
         .expect("Couldn't write bindings!");
+}
+
+#[cfg(not(feature = "webrtc"))]
+fn find_libsrtp2() {
+    // nothing
+}
+
+#[cfg(feature = "webrtc")]
+fn find_libsrtp2() {
+    if let Ok(_lib) = pkg_config::Config::new()
+        .atleast_version("2.3.0")
+        .statik(is_static())
+        .probe("libsrtp2")
+    {
+        println!("find libsrtp2 from pkg_config");
+    } else {
+        if build_srtp().is_err() {
+            panic!("can't find libsrtp2, please install libsrtp2 or disable feature `webrtc`");
+        }
+    }
+}
+
+fn build_srtp() -> io::Result<()> {
+    // download from github
+    if !&out_dir().join("libsrtp").exists() {
+        Command::new("git")
+            .arg("clone")
+            .arg("--depth")
+            .arg("1")
+            .arg("-b")
+            .arg("v2.3.0")
+            .arg("https://github.com/cisco/libsrtp.git")
+            .current_dir(&out_dir())
+            .status()?;
+    }
+
+    // build srtp
+    let mut configure = Command::new("./configure");
+    configure.current_dir(&out_dir().join("libsrtp"));
+    configure.arg("--enable-openssl");
+    configure.status()?;
+
+    Command::new("make")
+        .arg("-j8")
+        .current_dir(&out_dir().join("libsrtp"))
+        .status()?;
+
+    println!("cargo:rustc-link-search={}", &out_dir().to_string_lossy());
+
+    if is_static() {
+        println!("cargo:rustc-link-lib=static=srtp2");
+    } else {
+        println!("cargo:rustc-link-lib=srtp2");
+    }
+    Ok(())
 }

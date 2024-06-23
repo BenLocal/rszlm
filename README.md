@@ -22,7 +22,7 @@ cargo build
 
 ### features
 
-- `dynamic`和`static`编译，目前只在 macos 下测试成功
+- `dynamic`和`static`编译
 
   - `dynamic`(默认)：
 
@@ -36,7 +36,11 @@ cargo build
     rszlm = { version = "*", features = ["static"] }
     ```
 
-- `webrtc`, 暂未支持
+- `webrtc`
+
+  ```toml
+  rszlm = { version = "*", features = ["webrtc"] }
+  ```
 
 ### examples
 

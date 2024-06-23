@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path, thread};
+use std::{collections::HashMap, fmt::format, path::Path, thread};
 
 use once_cell::sync::{Lazy, OnceCell};
 use rszlm::{
@@ -8,6 +8,7 @@ use rszlm::{
     obj::{CodecId, Track},
     player::ProxyPlayerBuilder,
     server::{http_server_start, rtmp_server_start, rtsp_server_start, stop_all_server},
+    webrtc::rtc_server_start,
 };
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
@@ -53,18 +54,22 @@ async fn start(cancel: CancellationToken) -> anyhow::Result<()> {
                 match msg {
                     ProxyMessageCmd::Start(m) => {
                         let cancel = CancellationToken::new();
-                        let key = m.source.clone();
+                        let key = format!("{}/{}", m.app, m.stream);
                         {
                             let mut store = PULL_STORE.write().await;
                             if store.contains_key(&key) {
                                 continue;
                             }
+
+                            println!("start pull: {}", key);
                             let _ = store.insert(key, ProxyState::new(m.source, m.app, m.stream, cancel));
                         }
                     }
                     ProxyMessageCmd::Stop(m) => {
                         let mut store = PULL_STORE.write().await;
-                        if let Some(state) = store.remove(&m.source) {
+                        let key = format!("{}/{}", m.app, m.stream);
+                        if let Some(state) = store.remove(&key) {
+                            println!("stop pull: {}", key);
                             state.cancel.cancel();
                         }
                     }
@@ -202,7 +207,8 @@ pub struct StartProxyMessage {
 }
 
 pub struct StopProxyMessage {
-    pub source: String,
+    pub app: String,
+    pub stream: String,
 }
 
 async fn zlm_start(cancel: CancellationToken) -> anyhow::Result<()> {
@@ -239,6 +245,7 @@ fn start_zlm_background(
         http_server_start(8553, false);
         rtsp_server_start(8554, false);
         rtmp_server_start(8555, false);
+        rtc_server_start(8556);
         {
             let mut events = EVENTS.write().unwrap();
             let tx_clone = tx.clone();
@@ -265,9 +272,14 @@ fn start_zlm_background(
 
             let tx_clone = tx.clone();
             events.on_media_no_reader(move |msg| {
-                println!("MediaNoReader: {:?}", msg);
+                println!(
+                    "MediaNoReader: app: {}, stream: {}",
+                    msg.sender.app(),
+                    msg.sender.stream()
+                );
                 let _ = tx_clone.blocking_send(ProxyMessageCmd::Stop(StopProxyMessage {
-                    source: "ssss".to_string(),
+                    app: msg.sender.app(),
+                    stream: msg.sender.stream(),
                 }));
             });
         }
