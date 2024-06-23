@@ -15,7 +15,7 @@ openssl-sys = { version = "0.9", optional = true }
 bindgen = "0.69"
 pkg-config = "0.3"
 openssl-sys = { version = "0.9", optional = true }
-
+cc = "1"
 
 [features]
 default = []

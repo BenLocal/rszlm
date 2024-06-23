@@ -1,4 +1,4 @@
-use std::{env, io, path::PathBuf, process::Command};
+use std::{env, fmt::format, io, path::PathBuf, process::Command};
 
 fn main() {
     std::thread::Builder::new()
@@ -45,6 +45,17 @@ fn zlm_release_path() -> PathBuf {
     }
 }
 
+fn c_compiler() -> cc::Tool {
+    cc::Build::new().get_compiler()
+}
+
+fn cxx_compiler() -> cc::Tool {
+    let mut cxx = cc::Build::new();
+    cxx.cpp(true);
+
+    cxx.get_compiler()
+}
+
 fn build() -> io::Result<()> {
     let src = src_path();
     // download from github or gitee
@@ -78,6 +89,14 @@ fn build() -> io::Result<()> {
     // cmake
     let mut cmd = Command::new("cmake");
     cmd.arg("-DCMAKE_BUILD_TYPE=Release");
+    cmd.arg(format!(
+        "-DCMAKE_C_COMPILER={}",
+        c_compiler().path().to_string_lossy()
+    ));
+    cmd.arg(format!(
+        "-DCMAKE_CXX_COMPILER={}",
+        cxx_compiler().path().to_string_lossy()
+    ));
 
     if is_static() {
         cmd.arg("-DENABLE_API_STATIC_LIB=ON");
