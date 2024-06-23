@@ -30,7 +30,7 @@ fn git_src() -> String {
         if env::var("ZLM_GIT_ZONE") == Ok("gitee".to_string()) {
             "https://gitee.com/xia-chu/ZLMediaKit".to_string()
         } else {
-            "https://gitee.com/xia-chu/ZLMediaKit".to_string()
+            "https://github.com/ZLMediaKit/ZLMediaKit".to_string()
         }
     })
 }
