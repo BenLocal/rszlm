@@ -1,11 +1,9 @@
-use std::{collections::HashMap, fmt::format, path::Path, thread};
+use std::collections::HashMap;
 
 use once_cell::sync::{Lazy, OnceCell};
 use rszlm::{
     event::EVENTS,
     init::EnvInitBuilder,
-    media::Media,
-    obj::{CodecId, Track},
     player::ProxyPlayerBuilder,
     server::{http_server_start, rtmp_server_start, rtsp_server_start, stop_all_server},
     webrtc::rtc_server_start,
@@ -101,69 +99,11 @@ impl ProxyState {
             cancel,
         };
 
-        if source == "mp4" {
-            // create media
-            tokio::task::spawn_blocking(move || ffmpeg_mux_worker(cancel_clone));
-        } else {
-            tokio::spawn(async move {
-                proxy_pull_worker(&source_clone, &app, &stream, cancel_clone).await
-            });
-        }
+        tokio::spawn(
+            async move { proxy_pull_worker(&source_clone, &app, &stream, cancel_clone).await },
+        );
 
         s
-    }
-}
-
-fn ffmpeg_mux_worker(cancel: CancellationToken) {
-    let media = Media::new("__defaultVhost__", "live", "test", 0.0, false, false);
-    let video_track = Track::new(CodecId::H264, None);
-
-    media.init_track(&video_track);
-    media.init_complete();
-
-    if cancel.is_cancelled() {
-        return;
-    }
-
-    let path = Path::new(
-        "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    );
-    let mut reader = video_rs::Reader::new(path).unwrap();
-    let video_stream_index = reader.best_video_stream_index().unwrap();
-    let mut muxer =
-        video_rs::MuxerBuilder::new(video_rs::io::PacketizedBufWriter::new("h264").unwrap())
-            .with_streams(&reader)
-            .unwrap()
-            .build();
-    let mut current_dts = 0u64;
-
-    loop {
-        if cancel.is_cancelled() {
-            break;
-        }
-        match reader.read(video_stream_index) {
-            Ok(packet) => {
-                let duration = packet.duration();
-                let out = muxer.mux(packet);
-                if let Ok(d) = out {
-                    let date = d.into_iter().flatten().collect::<Vec<u8>>();
-                    let frame =
-                        rszlm::frame::Frame::new(CodecId::H264, current_dts, current_dts, date);
-                    let _ = media.input_frame(&frame);
-                    thread::sleep(std::time::Duration::from_secs_f64(duration.as_secs_f64()));
-                }
-                current_dts = current_dts + (duration.as_secs_f64() * 1000.0) as u64;
-            }
-            Err(e) => match e {
-                video_rs::Error::ReadExhausted => {
-                    let _ = reader.seek_to_start();
-                }
-                _ => {
-                    eprintln!("read error: {:?}", e);
-                    break;
-                }
-            },
-        }
     }
 }
 

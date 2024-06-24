@@ -1,4 +1,4 @@
-use std::{env, fmt::format, io, path::PathBuf, process::Command};
+use std::{env, io, path::PathBuf, process::Command};
 
 fn main() {
     std::thread::Builder::new()
@@ -18,21 +18,11 @@ fn src_path() -> PathBuf {
 }
 
 fn src_install_path() -> PathBuf {
-    out_dir().join("install")
+    out_dir().join("zlm-install")
 }
 
 fn is_static() -> bool {
     cfg!(feature = "static")
-}
-
-fn git_src() -> String {
-    env::var("ZLM_GIT").unwrap_or_else(|_| {
-        if env::var("ZLM_GIT_ZONE") == Ok("gitee".to_string()) {
-            "https://gitee.com/xia-chu/ZLMediaKit".to_string()
-        } else {
-            "https://github.com/ZLMediaKit/ZLMediaKit".to_string()
-        }
-    })
 }
 
 fn zlm_release_path() -> PathBuf {
@@ -45,15 +35,14 @@ fn zlm_release_path() -> PathBuf {
     }
 }
 
-fn c_compiler() -> cc::Tool {
-    cc::Build::new().get_compiler()
-}
-
-fn cxx_compiler() -> cc::Tool {
-    let mut cxx = cc::Build::new();
-    cxx.cpp(true);
-
-    cxx.get_compiler()
+fn git_src() -> String {
+    env::var("ZLM_GIT").unwrap_or_else(|_| {
+        if env::var("ZLM_GIT_ZONE") == Ok("gitee".to_string()) {
+            "https://gitee.com/xia-chu/ZLMediaKit".to_string()
+        } else {
+            "https://github.com/ZLMediaKit/ZLMediaKit".to_string()
+        }
+    })
 }
 
 fn build() -> io::Result<()> {
@@ -79,61 +68,27 @@ fn build() -> io::Result<()> {
             .status()?;
     }
 
-    // build ZLMediaKit
-    let build_dir = &src_path().join("build");
-    if build_dir.exists() {
-        std::fs::remove_dir_all(&build_dir)?;
-    }
-    std::fs::create_dir_all(&build_dir)?;
+    let mut cmake = cmake::Config::new(&src_path());
 
-    // cmake
-    let mut cmd = Command::new("cmake");
-    cmd.arg("-DCMAKE_BUILD_TYPE=Release");
-    cmd.arg(format!(
-        "-DCMAKE_C_COMPILER={}",
-        c_compiler().path().to_string_lossy()
-    ));
-    cmd.arg(format!(
-        "-DCMAKE_CXX_COMPILER={}",
-        cxx_compiler().path().to_string_lossy()
-    ));
+    cmake
+        .uses_cxx11()
+        .profile("Release")
+        .out_dir(&src_install_path())
+        .very_verbose(true);
 
     if is_static() {
-        cmd.arg("-DENABLE_API_STATIC_LIB=ON");
+        cmake.define("ENABLE_API_STATIC_LIB", "ON");
     }
 
     #[cfg(feature = "webrtc")]
-    cmd.arg("-DENABLE_WEBRTC=ON");
+    cmake.define("ENABLE_WEBRTC", "ON");
     #[cfg(not(feature = "webrtc"))]
-    cmd.arg("-DENABLE_WEBRTC=OFF");
+    cmake.define("ENABLE_WEBRTC", "OFF");
 
-    cmd.arg("..").current_dir(&build_dir).status()?;
+    cmake.register_dep("openssl-sys");
 
-    // make build
-    match env::var("CARGO_CFG_TARGET_OS").unwrap().as_str() {
-        "windows" => {
-            Command::new("cmake")
-                .arg("--build")
-                .arg(".")
-                .args(&["--config", "Release"])
-                .current_dir(&build_dir)
-                .status()?;
-        }
-        _ => {
-            Command::new("make")
-                .arg("-j8")
-                .current_dir(&build_dir)
-                .status()?;
-        }
-    }
-
-    // copy to install dir
-    let zlm_install_lib = src_install_path().join("lib");
-    if zlm_install_lib.exists() {
-        std::fs::remove_dir_all(&zlm_install_lib)?;
-    }
-
-    std::fs::create_dir_all(&zlm_install_lib)?;
+    let dst = cmake.build();
+    println!("dst: {}", dst.to_string_lossy());
     std::fs::read_dir(src_path().join(zlm_release_path()))?
         .into_iter()
         .for_each(|e| {
@@ -149,35 +104,13 @@ fn build() -> io::Result<()> {
                     {
                         std::fs::copy(
                             &src_path().join(zlm_release_path()).join(file_name),
-                            &zlm_install_lib.join(file_name),
+                            &src_install_path().join("lib").join(file_name),
                         )
                         .unwrap();
                     }
                 }
             }
         });
-
-    let zlm_install_include = src_install_path().join("include");
-    if zlm_install_include.exists() {
-        std::fs::remove_dir_all(&zlm_install_include)?;
-    }
-    std::fs::create_dir_all(&zlm_install_include)?;
-    let include_path = src_path().join("api").join("include");
-    std::fs::read_dir(&include_path)?.into_iter().for_each(|e| {
-        if let Ok(entry) = e {
-            if entry.file_type().unwrap().is_file() {
-                let file_name = entry.file_name();
-                let file_name = file_name.to_str().unwrap();
-                if file_name.ends_with(".h") {
-                    std::fs::copy(
-                        include_path.join(file_name),
-                        zlm_install_include.join(file_name),
-                    )
-                    .unwrap();
-                }
-            }
-        }
-    });
     Ok(())
 }
 
@@ -296,43 +229,46 @@ fn find_libsrtp2() {
     {
         println!("find libsrtp2 from pkg_config");
     } else {
-        if build_srtp().is_err() {
-            panic!("can't find libsrtp2, please install libsrtp2 or disable feature `webrtc`");
-        }
+        build_srtp();
+        // check srtp build result
+        // if srtp.is_err() {
+        //     panic!("can't find libsrtp2, please install libsrtp2 or disable feature `webrtc`");
+        // }
     }
 }
 
-fn build_srtp() -> io::Result<()> {
+#[allow(dead_code)]
+fn build_srtp() {
     // download from github
     if !&out_dir().join("libsrtp").exists() {
         Command::new("git")
             .arg("clone")
-            .arg("--depth")
-            .arg("1")
             .arg("-b")
             .arg("v2.3.0")
             .arg("https://github.com/cisco/libsrtp.git")
             .current_dir(&out_dir())
-            .status()?;
+            .status()
+            .unwrap();
     }
 
     // build srtp
-    let mut configure = Command::new("./configure");
-    configure.current_dir(&out_dir().join("libsrtp"));
-    configure.arg("--enable-openssl");
-    configure.status()?;
+    let mut cmake = cmake::Config::new(&out_dir().join("libsrtp"));
+    cmake
+        .profile("Release")
+        .define("ENABLE_OPENSSL", "ON")
+        .out_dir(&out_dir().join("srtp-install"))
+        .register_dep("openssl-sys")
+        .very_verbose(true);
 
-    Command::new("make")
-        .arg("-j8")
-        .current_dir(&out_dir().join("libsrtp"))
-        .status()?;
-
-    println!("cargo:rustc-link-search={}", &out_dir().to_string_lossy());
+    cmake.build();
+    println!(
+        "cargo:rustc-link-search={}",
+        &out_dir().join("srtp-install").join("lib").to_string_lossy()
+    );
 
     if is_static() {
         println!("cargo:rustc-link-lib=static=srtp2");
     } else {
         println!("cargo:rustc-link-lib=srtp2");
     }
-    Ok(())
 }
