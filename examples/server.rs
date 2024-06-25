@@ -6,7 +6,6 @@ use rszlm::{
     init::EnvInitBuilder,
     player::ProxyPlayerBuilder,
     server::{http_server_start, rtmp_server_start, rtsp_server_start, stop_all_server},
-    webrtc::rtc_server_start,
 };
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
@@ -185,7 +184,6 @@ fn start_zlm_background(
         http_server_start(8553, false);
         rtsp_server_start(8554, false);
         rtmp_server_start(8555, false);
-        rtc_server_start(8556);
         {
             let mut events = EVENTS.write().unwrap();
             let tx_clone = tx.clone();

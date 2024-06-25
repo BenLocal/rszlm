@@ -308,6 +308,22 @@ pub enum CodecId {
     H265,
 }
 
+/// i do not why
+/// in msvc, 0 is H264, 1 is H265
+/// unsafe { MKCodecH264 } will build error with:
+///     error LNK2019: unresolved external symbol MKCodecH264
+///     error LNK2019: unresolved external symbol MKCodecH265
+#[cfg(target_env = "msvc")]
+impl Into<i32> for CodecId {
+    fn into(self) -> i32 {
+        match self {
+            CodecId::H264 => 0,
+            CodecId::H265 => 1,
+        }
+    }
+}
+
+#[cfg(not(target_env = "msvc"))]
 impl Into<i32> for CodecId {
     fn into(self) -> i32 {
         match self {

@@ -73,11 +73,11 @@ fn build() -> io::Result<()> {
     cmake
         .uses_cxx11()
         .profile("Release")
-        .out_dir(&src_install_path())
-        .very_verbose(true);
+        .out_dir(&src_install_path());
 
     if is_static() {
         cmake.define("ENABLE_API_STATIC_LIB", "ON");
+        cmake.define("OPENSSL_USE_STATIC_LIBS", "ON");
     }
 
     #[cfg(feature = "webrtc")]
@@ -85,10 +85,10 @@ fn build() -> io::Result<()> {
     #[cfg(not(feature = "webrtc"))]
     cmake.define("ENABLE_WEBRTC", "OFF");
 
-    cmake.register_dep("openssl-sys");
+    cmake.register_dep("OPENSSL");
 
     let dst = cmake.build();
-    println!("dst: {}", dst.to_string_lossy());
+    println!("cargo:root={}", dst.to_string_lossy());
     std::fs::read_dir(src_path().join(zlm_release_path()))?
         .into_iter()
         .for_each(|e| {
@@ -114,8 +114,8 @@ fn build() -> io::Result<()> {
     Ok(())
 }
 
-fn link_dynamic() {
-    println!("cargo:rustc-link-lib=mk_api");
+fn link_dynamic(_zlm_link_path: &PathBuf) {
+    println!("cargo:rustc-link-lib=dylib=mk_api");
 }
 
 fn link_static(zlm_link_path: &PathBuf) {
@@ -199,7 +199,7 @@ fn buildgen() {
     if is_static {
         link_static(&zlm_install_lib);
     } else {
-        link_dynamic();
+        link_dynamic(&zlm_install_lib);
     }
 
     // generate bindings
@@ -239,26 +239,33 @@ fn find_libsrtp2() {
 
 #[allow(dead_code)]
 fn build_srtp() {
+    let git_url = if env::var("ZLM_GIT_ZONE") == Ok("gitee".to_string()) {
+        "https://gitee.com/mirrors/libsrtp.git".to_string()
+    } else {
+        "https://github.com/cisco/libsrtp.git".to_string()
+    };
+
     // download from github
     if !&out_dir().join("libsrtp").exists() {
         Command::new("git")
             .arg("clone")
             .arg("-b")
             .arg("v2.3.0")
-            .arg("https://github.com/cisco/libsrtp.git")
+            .arg(git_url)
             .current_dir(&out_dir())
             .status()
             .unwrap();
     }
 
+    println!("env: {:?}", env::vars());
+
     // build srtp
     let mut cmake = cmake::Config::new(&out_dir().join("libsrtp"));
     cmake
         .profile("Release")
-        .define("ENABLE_OPENSSL", "ON")
+        //.define("ENABLE_OPENSSL", "ON")
         .out_dir(&out_dir().join("srtp-install"))
-        .register_dep("openssl-sys")
-        .very_verbose(true);
+        .register_dep("OPENSSL");
 
     cmake.build();
     println!(
