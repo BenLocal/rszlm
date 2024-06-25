@@ -89,28 +89,34 @@ fn build() -> io::Result<()> {
 
     let dst = cmake.build();
     println!("cargo:root={}", dst.to_string_lossy());
-    std::fs::read_dir(src_path().join(zlm_release_path()))?
-        .into_iter()
-        .for_each(|e| {
-            if let Ok(entry) = e {
-                if entry.file_type().unwrap().is_file() {
-                    let file_name = entry.file_name();
-                    let file_name = file_name.to_str().unwrap();
-                    if file_name.ends_with(".a")
-                        || file_name.ends_with(".lib")
-                        || file_name.ends_with(".so")
-                        || file_name.ends_with(".dylib")
-                        || file_name.ends_with(".dll")
-                    {
-                        std::fs::copy(
-                            &src_path().join(zlm_release_path()).join(file_name),
-                            &src_install_path().join("lib").join(file_name),
-                        )
-                        .unwrap();
+
+    if is_static() {
+        // when static build, zlm only install mk_api static lib
+        // so we copy all static libs to zlm-install/lib
+        std::fs::read_dir(src_path().join(zlm_release_path()))?
+            .into_iter()
+            .for_each(|e| {
+                if let Ok(entry) = e {
+                    if entry.file_type().unwrap().is_file() {
+                        let file_name = entry.file_name();
+                        let file_name = file_name.to_str().unwrap();
+                        if file_name.ends_with(".a")
+                            || file_name.ends_with(".lib")
+                            || file_name.ends_with(".so")
+                            || file_name.ends_with(".dylib")
+                            || file_name.ends_with(".dll")
+                        {
+                            std::fs::copy(
+                                &src_path().join(zlm_release_path()).join(file_name),
+                                &src_install_path().join("lib").join(file_name),
+                            )
+                            .unwrap();
+                        }
                     }
                 }
-            }
-        });
+            });
+    }
+
     Ok(())
 }
 
@@ -170,8 +176,6 @@ fn select_static_libs(zlm_link_path: &PathBuf) -> io::Result<Vec<String>> {
 fn buildgen() {
     let is_static = is_static();
 
-    find_libsrtp2();
-
     let (zlm_install_include, zlm_install_lib) = if env::var("ZLM_DIR").is_ok() {
         let zlm_install = PathBuf::from(env::var("ZLM_DIR").unwrap());
         println!(
@@ -180,6 +184,8 @@ fn buildgen() {
         );
         (zlm_install.join("include"), zlm_install.join("lib"))
     } else {
+        find_libsrtp2();
+
         println!(
             "cargo:rustc-link-search=native={}",
             src_install_path().join("lib").to_string_lossy()

@@ -21,6 +21,6 @@ tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["full"] }
 
 [features]
-default = []
+default = ["static"]
 static = ["rszlm-sys/static"]
 webrtc = ["rszlm-sys/webrtc"]
