@@ -2,7 +2,7 @@ workspace = { members = ["rszlm-sys"] }
 
 [package]
 name = "rszlm"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["shiben. <benshi0v0@gmail.com>"]
 description = "ZLMediaKit rust api"
@@ -12,7 +12,7 @@ license = "MIT"
 readme = "README.md"
 
 [dependencies]
-rszlm-sys = { path = "rszlm-sys" }
+rszlm-sys = { path = "rszlm-sys", version = "0.1" }
 once_cell = "1.8"
 anyhow = "1"
 
