@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use once_cell::sync::{Lazy, OnceCell};
 use rszlm::{
     event::EVENTS,
-    init::EnvInitBuilder,
+    init::{EnvIni, EnvInitBuilder},
     player::ProxyPlayerBuilder,
     server::{http_server_start, rtmp_server_start, rtsp_server_start, stop_all_server},
 };
@@ -180,6 +180,16 @@ fn start_zlm_background(
             .log_mask(0)
             .thread_num(20)
             .build();
+        {
+            let ini = EnvIni::global().lock().unwrap();
+            ini.set_option_int("protocol.hls_demand", 1);
+            ini.set_option_int("protocol.rtsp_demand", 1);
+            ini.set_option_int("protocol.rtmp_demand", 1);
+            ini.set_option_int("protocol.ts_demand", 1);
+            ini.set_option_int("protocol.fmp4_demand", 1);
+
+            println!("ini: {}", ini.dump());
+        }
 
         http_server_start(8553, false);
         rtsp_server_start(8554, false);

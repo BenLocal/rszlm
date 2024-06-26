@@ -1,6 +1,9 @@
+use std::sync::Mutex;
+
+use once_cell::sync::Lazy;
 use rszlm_sys::*;
 
-use crate::const_str_to_ptr;
+use crate::{const_ptr_to_string, const_str_to_ptr};
 
 pub struct EnvInitBuilder(mk_config);
 
@@ -68,8 +71,14 @@ impl EnvInitBuilder {
         self
     }
 
-    pub fn ini(mut self, ini: &str) -> Self {
-        self.0.ini = const_str_to_ptr!(ini);
+    pub fn ini(mut self, ini_txt: &str) -> Self {
+        self.0.ini = const_str_to_ptr!(ini_txt);
+        self
+    }
+
+    pub fn ini_by_file(mut self, path: &str) -> Self {
+        self.0.ini = const_str_to_ptr!(path);
+        self.0.ini_is_path = 1;
         self
     }
 
@@ -98,3 +107,50 @@ impl Default for EnvInitBuilder {
         Self::new()
     }
 }
+
+static EVN_INI: Lazy<Mutex<EnvIni>> = Lazy::new(|| Mutex::new(EnvIni(unsafe { mk_ini_default() })));
+
+pub struct EnvIni(mk_ini);
+
+impl EnvIni {
+    /// 创建ini配置对象
+    pub fn new() -> Self {
+        Self(unsafe { mk_ini_create() })
+    }
+
+    /// 创建ini配置对象
+    /// 全局默认ini配置，请勿用mk_ini_release释放它
+    ///
+    pub fn global() -> &'static Mutex<EnvIni> {
+        &EVN_INI
+    }
+
+    pub fn set_option(&self, key: &str, val: &str) {
+        unsafe { mk_ini_set_option(self.0, const_str_to_ptr!(key), const_str_to_ptr!(val)) }
+    }
+
+    pub fn set_option_int(&self, key: &str, val: i32) {
+        unsafe { mk_ini_set_option_int(self.0, const_str_to_ptr!(key), val) }
+    }
+
+    pub fn get_option(&self, key: &str) -> String {
+        unsafe { const_ptr_to_string!(mk_ini_get_option(self.0, const_str_to_ptr!(key))) }
+    }
+
+    pub fn remove_option(&self, key: &str) -> bool {
+        unsafe { mk_ini_del_option(self.0, const_str_to_ptr!(key)) != 0 }
+    }
+
+    pub fn dump(&self) -> String {
+        unsafe { const_ptr_to_string!(mk_ini_dump_string(self.0)) }
+    }
+}
+
+impl Drop for EnvIni {
+    fn drop(&mut self) {
+        unsafe { mk_ini_release(self.0) }
+    }
+}
+
+unsafe impl Send for EnvIni {}
+unsafe impl Sync for EnvIni {}
