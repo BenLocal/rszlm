@@ -2,7 +2,7 @@ workspace = { members = ["rszlm-sys"] }
 
 [package]
 name = "rszlm"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["shiben. <benshi0v0@gmail.com>"]
 description = "ZLMediaKit rust api"
@@ -21,6 +21,6 @@ tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["full"] }
 
 [features]
-default = ["static"]
+default = []
 static = ["rszlm-sys/static"]
 webrtc = ["rszlm-sys/webrtc"]
