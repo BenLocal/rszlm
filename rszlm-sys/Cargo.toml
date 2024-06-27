@@ -1,12 +1,15 @@
 [package]
 name = "rszlm-sys"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["shiben. <benshi0v0@gmail.com>"]
 description = "ZLMediaKit rust ffi api"
 repository = "https://github.com/BenLocal/rszlm"
 keywords = ["zlm", "zlmediakit", "rszlm", "rszlm-sys"]
 license = "MIT"
+
+[lib]
+doctest = false
 
 [dependencies]
 openssl-sys = { version = "0.9", optional = true }

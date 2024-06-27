@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 
+use axum::response::IntoResponse;
+use axum::{body::Body, routing::get, Router};
+use futures_util::StreamExt;
+use hyper_util::{client::legacy::connect::HttpConnector, rt::TokioExecutor};
 use once_cell::sync::{Lazy, OnceCell};
 use rszlm::{
     event::EVENTS,
@@ -7,7 +11,7 @@ use rszlm::{
     player::ProxyPlayerBuilder,
     server::{http_server_start, rtmp_server_start, rtsp_server_start, stop_all_server},
 };
-use tokio::sync::RwLock;
+use tokio::{runtime::Handle, sync::RwLock};
 use tokio_util::sync::CancellationToken;
 
 static PULL_PROXY_MESSAGE: OnceCell<tokio::sync::mpsc::Sender<ProxyMessageCmd>> = OnceCell::new();
@@ -21,6 +25,15 @@ pub(crate) async fn pull_proxy_message(msg: ProxyMessageCmd) {
     }
 }
 
+const AXUM_PORT: u16 = 8552;
+
+type Client = hyper_util::client::legacy::Client<HttpConnector, Body>;
+
+static CLIENT: Lazy<Client> = Lazy::new(|| {
+    hyper_util::client::legacy::Client::<(), ()>::builder(TokioExecutor::new())
+        .build(HttpConnector::new())
+});
+
 #[tokio::main]
 async fn main() {
     let cancel = CancellationToken::new();
@@ -31,6 +44,9 @@ async fn main() {
 
     let cancel_clone = cancel.clone();
     tokio::spawn(start(cancel_clone));
+
+    let cancel_clone = cancel.clone();
+    tokio::spawn(axum_start(AXUM_PORT, cancel_clone));
 
     tokio::signal::ctrl_c().await.unwrap();
     cancel.cancel();
@@ -154,7 +170,8 @@ async fn zlm_start(cancel: CancellationToken) -> anyhow::Result<()> {
     let cancel_clone = cancel.clone();
     let (tx, mut rx) = tokio::sync::mpsc::channel::<ProxyMessageCmd>(100);
 
-    let _ = start_zlm_background(cancel_clone, tx);
+    let runtime = Handle::current();
+    let _ = start_zlm_background(cancel_clone, tx, runtime);
 
     loop {
         tokio::select! {
@@ -173,6 +190,7 @@ async fn zlm_start(cancel: CancellationToken) -> anyhow::Result<()> {
 fn start_zlm_background(
     cancel: CancellationToken,
     tx: tokio::sync::mpsc::Sender<ProxyMessageCmd>,
+    runtime: tokio::runtime::Handle,
 ) -> anyhow::Result<()> {
     tokio::task::spawn_blocking(move || {
         EnvInitBuilder::default()
@@ -230,6 +248,64 @@ fn start_zlm_background(
                     stream: msg.sender.stream(),
                 }));
             });
+
+            events.on_http_request(move |msg| {
+                let url = msg.parser.url();
+
+                if url.starts_with("/test") {
+                    let headers = vec!["Content-Type".to_string(), "text/plain".to_string()];
+                    let body = "hello world";
+                    msg.invoker.invoke(200, headers, body);
+                    return true;
+                } else if url.starts_with("/proxy") {
+                    let path = &url["/proxy".len()..];
+                    let query = msg.parser.query_str();
+                    let path_query = if query.is_empty() {
+                        path.to_owned()
+                    } else {
+                        format!("{}?{}", path, query)
+                    };
+
+                    let uri = format!("http://127.0.0.1:{}{}", AXUM_PORT, path_query);
+                    if let Ok(req) = hyper::Request::builder()
+                        .method(msg.parser.method().as_str())
+                        .uri(uri)
+                        .body(Body::from(msg.parser.body()))
+                    {
+                        // TODO copy request headers
+                        let resp = runtime.block_on(async move {
+                            CLIENT
+                                .request(req)
+                                .await
+                                .map_err(|_| hyper::StatusCode::BAD_REQUEST)
+                                .into_response()
+                        });
+                        let status = resp.status();
+                        let header = resp
+                            .headers()
+                            .iter()
+                            .map(|(k, v)| vec![k.to_string(), v.to_str().unwrap().to_string()])
+                            .flatten()
+                            .collect::<Vec<_>>();
+                        let body = resp.into_body();
+                        let body_str = runtime
+                            .block_on(async move {
+                                let mut b = body.into_data_stream();
+                                let mut data = String::new();
+                                while let Some(chunk) = b.next().await {
+                                    data.push_str(&String::from_utf8_lossy(&chunk?));
+                                }
+                                anyhow::Ok(data)
+                            })
+                            .unwrap();
+
+                        msg.invoker
+                            .invoke(status.as_u16() as i32, header, &body_str);
+                        return true;
+                    }
+                }
+                false
+            });
         }
 
         loop {
@@ -245,4 +321,23 @@ fn start_zlm_background(
     });
 
     Ok(())
+}
+
+async fn axum_start(port: u16, cancel: CancellationToken) -> anyhow::Result<()> {
+    let app = Router::new()
+        .route("/", get(|| async { "Hello, axum world!" }))
+        .route("/test", get(|| async { "Hello, axum test!" }));
+
+    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port)).await?;
+    println!("listening on {}", listener.local_addr()?);
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            tokio::select! {
+                _ = cancel.cancelled() => {
+                    println!("cancel");
+                },
+            }
+        })
+        .await
+        .map_err(|e| e.into())
 }

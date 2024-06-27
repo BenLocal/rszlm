@@ -44,12 +44,11 @@ macro_rules! box_to_mut_void_ptr {
 pub(crate) fn as_cstr_array<T: Into<Vec<u8>> + Clone>(
     arr: &[T],
 ) -> *mut *const ::std::os::raw::c_char {
-    let c_strings = arr
+    let mut tmp: Vec<_> = arr
         .iter()
         .map(|s| std::ffi::CString::new::<T>(s.to_owned()).unwrap())
+        .map(|f| f.as_ptr())
         .collect::<Vec<_>>();
-    let c_char_pointers = c_strings.iter().map(|s| s.as_ptr()).collect::<Vec<_>>();
-    let mut c_char_pointers_with_null = c_char_pointers.clone();
-    c_char_pointers_with_null.push(std::ptr::null());
-    c_char_pointers_with_null.as_mut_ptr()
+    tmp.push(std::ptr::null_mut());
+    tmp.as_mut_ptr()
 }
