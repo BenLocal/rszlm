@@ -30,12 +30,11 @@ impl EnvInitBuilder {
 
     /// 设置日志级别
     ///
-    /// ???
-    /// - 0: 不输出日志
-    /// - 1: 输出错误日志
-    /// - 2: 输出错误和警告日志
-    /// - 3: 输出错误、警告和调试日志
-    /// - 4: 输出错误、警告、调试和信息日志
+    /// - 0: Trace
+    /// - 1: Debug
+    /// - 2: Info
+    /// - 3: Warn
+    /// - 4: Error
     ///
     pub fn log_level(mut self, log_level: i32) -> Self {
         self.0.log_level = log_level;
@@ -56,11 +55,17 @@ impl EnvInitBuilder {
         self
     }
 
+    /// 文件日志保存路径,路径可以不存在(内部可以创建文件夹)
+    /// 默认设置为NULL关闭日志输出至文件
+    ///
     pub fn log_file_path(mut self, log_file_path: &str) -> Self {
         self.0.log_file_path = const_str_to_ptr!(log_file_path);
         self
     }
 
+    /// 文件日志保存天数
+    /// 默认设置为0关闭日志文件
+    ///
     pub fn log_file_days(mut self, log_file_days: i32) -> Self {
         self.0.log_file_days = log_file_days;
         self

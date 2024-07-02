@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rszlm_sys::*;
 
 use crate::{box_to_mut_void_ptr, const_ptr_to_string, const_str_to_ptr};
@@ -55,6 +57,7 @@ pub struct ProxyPlayerBuilder {
     stream: String,
     hls_enabled: bool,
     mp4_enabled: bool,
+    options: HashMap<String, String>,
 }
 
 impl ProxyPlayerBuilder {
@@ -87,8 +90,23 @@ impl ProxyPlayerBuilder {
         self
     }
 
+    /// Add option
+    /// key:
+    ///     - net_adapter
+    ///     - rtp_type：rtsp播放方式:RTP_TCP = 0, RTP_UDP = 1, RTP_MULTICAST = 2
+    ///     - rtsp_user： rtsp播放用户名
+    ///     - rtsp_pwd： rtsp播放密码
+    ///     - protocol_timeout_ms
+    ///     - media_timeout_ms
+    ///     - beat_interval_ms
+    ///     - rtsp_speed
+    pub fn add_option(mut self, key: &str, val: &str) -> Self {
+        self.options.insert(key.to_string(), val.to_string());
+        self
+    }
+
     pub fn build(self) -> ProxyPlayer {
-        ProxyPlayer(unsafe {
+        let tmp = ProxyPlayer(unsafe {
             mk_proxy_player_create(
                 const_str_to_ptr!(self.vhost),
                 const_str_to_ptr!(self.app),
@@ -96,7 +114,15 @@ impl ProxyPlayerBuilder {
                 self.hls_enabled as i32,
                 self.mp4_enabled as i32,
             )
-        })
+        });
+
+        if !self.options.is_empty() {
+            for (key, val) in self.options {
+                tmp.set_options(&key, &val);
+            }
+        }
+
+        tmp
     }
 }
 

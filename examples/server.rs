@@ -127,6 +127,7 @@ async fn proxy_pull_worker(source: &str, app: &str, stream: &str, cancel: Cancel
         .vhost("__defaultVhost__")
         .app(app)
         .stream(stream)
+        .add_option("rtp_type", "0")
         .build();
     let (tx, rx) = tokio::sync::oneshot::channel::<String>();
     player.on_close(move |_, _, _| {
