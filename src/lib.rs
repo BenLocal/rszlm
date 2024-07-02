@@ -5,6 +5,7 @@ pub mod media;
 pub mod obj;
 pub mod player;
 pub mod pusher;
+pub mod recorder;
 pub mod server;
 #[cfg(feature = "webrtc")]
 pub mod webrtc;
