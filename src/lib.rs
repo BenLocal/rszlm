@@ -13,10 +13,10 @@ pub mod webrtc;
 #[macro_export]
 macro_rules! const_ptr_to_string {
     ($a:ident) => {
-        std::ffi::CStr::from_ptr($a).to_string_lossy().to_string()
+        std::ffi::CStr::from_ptr($a).to_string_lossy().into_owned()
     };
     ($a:expr) => {
-        std::ffi::CStr::from_ptr($a).to_string_lossy().to_string()
+        std::ffi::CStr::from_ptr($a).to_string_lossy().into_owned()
     };
     ($a:ident, $def:literal) => {
         Ok(std::ffi::CStr::from_ptr(schema)
@@ -28,10 +28,10 @@ macro_rules! const_ptr_to_string {
 #[macro_export]
 macro_rules! const_str_to_ptr {
     ($a:ident) => {
-        std::ffi::CString::new($a).unwrap().into_raw()
+        std::ffi::CString::new($a).unwrap()
     };
     ($a:expr) => {
-        std::ffi::CString::new($a).unwrap().into_raw()
+        std::ffi::CString::new($a).unwrap()
     };
 }
 
@@ -40,16 +40,4 @@ macro_rules! box_to_mut_void_ptr {
     ($a:ident) => {
         Box::into_raw(Box::new($a)) as *mut _
     };
-}
-
-pub(crate) fn as_cstr_array<T: Into<Vec<u8>> + Clone>(
-    arr: &[T],
-) -> *mut *const ::std::os::raw::c_char {
-    let mut tmp: Vec<_> = arr
-        .iter()
-        .map(|s| std::ffi::CString::new::<T>(s.to_owned()).unwrap())
-        .map(|f| f.as_ptr())
-        .collect::<Vec<_>>();
-    tmp.push(std::ptr::null_mut());
-    tmp.as_mut_ptr()
 }

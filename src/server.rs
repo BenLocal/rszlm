@@ -42,7 +42,8 @@ pub struct RtpServer(mk_rtp_server);
 
 impl RtpServer {
     pub fn new(port: u16, tcp_mode: i32, stream_id: &str) -> Self {
-        Self(unsafe { mk_rtp_server_create(port, tcp_mode, const_str_to_ptr!(stream_id)) })
+        let stream_id = const_str_to_ptr!(stream_id);
+        Self(unsafe { mk_rtp_server_create(port, tcp_mode, stream_id.as_ptr()) })
     }
 
     pub fn bind_port(&self) -> u16 {
@@ -62,10 +63,11 @@ impl RtpServer {
 
     pub fn connect(&self, url: &str, dst_port: u16, cb: impl FnOnce(i32, &str, i32) + 'static) {
         let cb = Box::new(cb);
+        let url = const_str_to_ptr!(url);
         unsafe {
             mk_rtp_server_connect(
                 self.0,
-                const_str_to_ptr!(url),
+                url.as_ptr(),
                 dst_port,
                 Some(on_rtp_server_connected),
                 box_to_mut_void_ptr!(cb),

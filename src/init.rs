@@ -59,7 +59,8 @@ impl EnvInitBuilder {
     /// 默认设置为NULL关闭日志输出至文件
     ///
     pub fn log_file_path(mut self, log_file_path: &str) -> Self {
-        self.0.log_file_path = const_str_to_ptr!(log_file_path);
+        let log_file_path = const_str_to_ptr!(log_file_path);
+        self.0.log_file_path = log_file_path.into_raw();
         self
     }
 
@@ -77,12 +78,14 @@ impl EnvInitBuilder {
     }
 
     pub fn ini(mut self, ini_txt: &str) -> Self {
-        self.0.ini = const_str_to_ptr!(ini_txt);
+        let ini_txt = const_str_to_ptr!(ini_txt);
+        self.0.ini = ini_txt.into_raw();
         self
     }
 
     pub fn ini_by_file(mut self, path: &str) -> Self {
-        self.0.ini = const_str_to_ptr!(path);
+        let path = const_str_to_ptr!(path);
+        self.0.ini = path.into_raw();
         self.0.ini_is_path = 1;
         self
     }
@@ -93,12 +96,14 @@ impl EnvInitBuilder {
     }
 
     pub fn ssl(mut self, ssl: &str) -> Self {
-        self.0.ssl = const_str_to_ptr!(ssl);
+        let ssl = const_str_to_ptr!(ssl);
+        self.0.ssl = ssl.into_raw();
         self
     }
 
     pub fn ssl_pwd(mut self, ssl_pwd: &str) -> Self {
-        self.0.ssl_pwd = const_str_to_ptr!(ssl_pwd);
+        let ssl_pwd = const_str_to_ptr!(ssl_pwd);
+        self.0.ssl_pwd = ssl_pwd.into_raw();
         self
     }
 
@@ -131,19 +136,24 @@ impl EnvIni {
     }
 
     pub fn set_option(&self, key: &str, val: &str) {
-        unsafe { mk_ini_set_option(self.0, const_str_to_ptr!(key), const_str_to_ptr!(val)) }
+        let val = const_str_to_ptr!(val);
+        let key = const_str_to_ptr!(key);
+        unsafe { mk_ini_set_option(self.0, key.as_ptr(), val.as_ptr()) }
     }
 
     pub fn set_option_int(&self, key: &str, val: i32) {
-        unsafe { mk_ini_set_option_int(self.0, const_str_to_ptr!(key), val) }
+        let key = const_str_to_ptr!(key);
+        unsafe { mk_ini_set_option_int(self.0, key.as_ptr(), val) }
     }
 
     pub fn get_option(&self, key: &str) -> String {
-        unsafe { const_ptr_to_string!(mk_ini_get_option(self.0, const_str_to_ptr!(key))) }
+        let key = const_str_to_ptr!(key);
+        unsafe { const_ptr_to_string!(mk_ini_get_option(self.0, key.as_ptr())) }
     }
 
     pub fn remove_option(&self, key: &str) -> bool {
-        unsafe { mk_ini_del_option(self.0, const_str_to_ptr!(key)) != 0 }
+        let key = const_str_to_ptr!(key);
+        unsafe { mk_ini_del_option(self.0, key.as_ptr()) != 0 }
     }
 
     pub fn dump(&self) -> String {

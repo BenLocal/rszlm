@@ -4,7 +4,7 @@ use rszlm_sys::*;
 use std::{ffi::CString, sync::RwLock};
 
 use crate::{
-    as_cstr_array, const_ptr_to_string, const_str_to_ptr,
+    const_ptr_to_string, const_str_to_ptr,
     obj::{AuthInvoker, MediaInfo, MediaSource, Parser, RecordInfo, RtcTransport, SockInfo},
 };
 
@@ -477,7 +477,8 @@ impl RtspAuthInvoker {
     }
 
     pub fn call(&self, pwd_or_md5: &str, encrypted: bool) {
-        unsafe { mk_rtsp_auth_invoker_do(self.0, encrypted as i32, const_str_to_ptr!(pwd_or_md5)) }
+        let pwd_or_md5 = const_str_to_ptr!(pwd_or_md5);
+        unsafe { mk_rtsp_auth_invoker_do(self.0, encrypted as i32, pwd_or_md5.as_ptr()) }
     }
 }
 
@@ -510,7 +511,8 @@ impl RtspGetRealmInvoker {
     }
 
     pub fn call(&self, realm: &str) {
-        unsafe { mk_rtsp_get_realm_invoker_do(self.0, const_str_to_ptr!(realm)) }
+        let realm = const_str_to_ptr!(realm);
+        unsafe { mk_rtsp_get_realm_invoker_do(self.0, realm.as_ptr()) }
     }
 }
 
@@ -585,9 +587,18 @@ pub struct HttpResponseInvoker(mk_http_response_invoker, bool);
 
 impl HttpResponseInvoker {
     pub fn invoke(&self, code: i32, headers: Vec<String>, body: &str) {
-        let header_ptr = as_cstr_array(&headers);
+        // let header_ptr = as_cstr_array(headers);
+        let cstr_argv: Vec<_> = headers
+            .iter()
+            .map(|arg| std::ffi::CString::new(arg.as_str()).unwrap())
+            .collect();
+
+        let mut p_argv: Vec<_> = cstr_argv.iter().map(|arg| arg.as_ptr()).collect();
+        p_argv.push(std::ptr::null_mut());
+
+        let body = const_str_to_ptr!(body);
         unsafe {
-            mk_http_response_invoker_do_string(self.0, code, header_ptr, const_str_to_ptr!(body))
+            mk_http_response_invoker_do_string(self.0, code, p_argv.as_mut_ptr(), body.as_ptr())
         }
     }
 }

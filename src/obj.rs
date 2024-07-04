@@ -242,7 +242,8 @@ impl AuthInvoker {
     }
 
     pub fn deny(&self, error: &str) {
-        unsafe { mk_auth_invoker_do(self.0, const_str_to_ptr!(error)) }
+        let error = const_str_to_ptr!(error);
+        unsafe { mk_auth_invoker_do(self.0, error.as_ptr()) }
     }
 }
 
@@ -285,11 +286,13 @@ impl Parser {
     }
 
     pub fn query(&self, key: &str) -> String {
-        unsafe { const_ptr_to_string!(mk_parser_get_url_param(self.0, const_str_to_ptr!(key))) }
+        let key = const_str_to_ptr!(key);
+        unsafe { const_ptr_to_string!(mk_parser_get_url_param(self.0, key.as_ptr())) }
     }
 
     pub fn header(&self, key: &str) -> String {
-        unsafe { const_ptr_to_string!(mk_parser_get_header(self.0, const_str_to_ptr!(key))) }
+        let key = const_str_to_ptr!(key);
+        unsafe { const_ptr_to_string!(mk_parser_get_header(self.0, key.as_ptr())) }
     }
 
     pub fn body(&self) -> String {

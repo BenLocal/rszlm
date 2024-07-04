@@ -13,11 +13,14 @@ impl Media {
         hls_enabled: bool,
         mp4_enabled: bool,
     ) -> Self {
+        let vhost = const_str_to_ptr!(vhost);
+        let app = const_str_to_ptr!(app);
+        let stream = const_str_to_ptr!(stream);
         unsafe {
             mk_media_create(
-                const_str_to_ptr!(vhost),
-                const_str_to_ptr!(app),
-                const_str_to_ptr!(stream),
+                vhost.as_ptr(),
+                app.as_ptr(),
+                stream.as_ptr(),
                 duration,
                 hls_enabled as i32,
                 mp4_enabled as i32,

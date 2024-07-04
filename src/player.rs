@@ -14,13 +14,14 @@ impl From<mk_proxy_player> for ProxyPlayer {
 
 impl ProxyPlayer {
     pub fn set_options(&self, key: &str, val: &str) {
-        unsafe {
-            mk_proxy_player_set_option(self.0, const_str_to_ptr!(key), const_str_to_ptr!(val))
-        }
+        let key = const_str_to_ptr!(key);
+        let val = const_str_to_ptr!(val);
+        unsafe { mk_proxy_player_set_option(self.0, key.as_ptr(), val.as_ptr()) }
     }
 
     pub fn play(&self, url: &str) {
-        unsafe { mk_proxy_player_play(self.0, const_str_to_ptr!(url)) };
+        let url = const_str_to_ptr!(url);
+        unsafe { mk_proxy_player_play(self.0, url.as_ptr()) };
     }
 
     pub fn total_reader_count(&self) -> i32 {
@@ -107,10 +108,13 @@ impl ProxyPlayerBuilder {
 
     pub fn build(self) -> ProxyPlayer {
         let tmp = ProxyPlayer(unsafe {
+            let vhost = const_str_to_ptr!(self.vhost);
+            let app = const_str_to_ptr!(self.app);
+            let stream = const_str_to_ptr!(self.stream);
             mk_proxy_player_create(
-                const_str_to_ptr!(self.vhost),
-                const_str_to_ptr!(self.app),
-                const_str_to_ptr!(self.stream),
+                vhost.as_ptr(),
+                app.as_ptr(),
+                stream.as_ptr(),
                 self.hls_enabled as i32,
                 self.mp4_enabled as i32,
             )

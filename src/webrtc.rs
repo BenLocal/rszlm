@@ -11,14 +11,17 @@ pub fn rtc_server_start(port: u16) {
 pub type WebrtcAnswerSdpCallbackFn = Box<dyn FnMut(String, String) + 'static>;
 
 pub fn get_answer_sdp(cb: WebrtcAnswerSdpCallbackFn, typ: &str, offer: &str, url: &str) {
+    let typ = const_str_to_ptr!(typ);
+    let offer = const_str_to_ptr!(offer);
+    let url = const_str_to_ptr!(url);
     unsafe {
         mk_webrtc_get_answer_sdp2(
             box_to_mut_void_ptr!(cb),
             Some(on_user_data_free),
             Some(on_webrtc_get_answer_sdp),
-            const_str_to_ptr!(typ),
-            const_str_to_ptr!(offer),
-            const_str_to_ptr!(url),
+            typ.as_ptr(),
+            offer.as_ptr(),
+            url.as_ptr(),
         );
     }
 }
