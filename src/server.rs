@@ -50,8 +50,14 @@ impl RtpServer {
         unsafe { mk_rtp_server_port(self.0) }
     }
 
-    pub fn on_detach(&self, cb: impl FnOnce() + 'static) {
-        let cb = Box::new(cb);
+    pub fn on_detach<T>(&self, cb: T)
+    where
+        T: FnMut() + 'static,
+    {
+        self.on_detach_inner(Box::new(cb));
+    }
+
+    fn on_detach_inner(&self, cb: OnRtpServerDetachCallbackFn) {
         unsafe {
             mk_rtp_server_set_on_detach(
                 self.0,
@@ -61,8 +67,14 @@ impl RtpServer {
         }
     }
 
-    pub fn connect(&self, url: &str, dst_port: u16, cb: impl FnOnce(i32, &str, i32) + 'static) {
-        let cb = Box::new(cb);
+    pub fn connect<T>(&self, url: &str, dst_port: u16, cb: T)
+    where
+        T: FnMut(i32, String, i32) + 'static,
+    {
+        self.connect_inner(url, dst_port, Box::new(cb));
+    }
+
+    fn connect_inner(&self, url: &str, dst_port: u16, cb: OnRtpServerConnectedCallbackFn) {
         let url = const_str_to_ptr!(url);
         unsafe {
             mk_rtp_server_connect(
@@ -76,13 +88,15 @@ impl RtpServer {
     }
 }
 
+type OnRtpServerDetachCallbackFn = Box<dyn FnMut() + 'static>;
 extern "C" fn on_rtp_server_detach(user_data: *mut ::std::os::raw::c_void) {
     unsafe {
-        let cb: &mut Box<dyn FnMut() + 'static> = std::mem::transmute(user_data);
+        let cb: &mut OnRtpServerDetachCallbackFn = std::mem::transmute(user_data);
         cb();
     };
 }
 
+type OnRtpServerConnectedCallbackFn = Box<dyn FnMut(i32, String, i32) + 'static>;
 extern "C" fn on_rtp_server_connected(
     user_data: *mut ::std::os::raw::c_void,
     err: ::std::os::raw::c_int,
@@ -90,8 +104,8 @@ extern "C" fn on_rtp_server_connected(
     sys_err: ::std::os::raw::c_int,
 ) {
     unsafe {
-        let cb: &mut Box<dyn FnMut(i32, &str, i32) + 'static> = std::mem::transmute(user_data);
-        cb(err, const_ptr_to_string!(what).as_str(), sys_err);
+        let cb: &mut OnRtpServerConnectedCallbackFn = std::mem::transmute(user_data);
+        cb(err, const_ptr_to_string!(what), sys_err);
     };
 }
 

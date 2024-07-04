@@ -28,8 +28,14 @@ impl ProxyPlayer {
         unsafe { mk_proxy_player_total_reader_count(self.0) }
     }
 
-    pub fn on_close(&self, cb: impl FnOnce(i32, &str, i32) + 'static) {
-        let cb = Box::new(cb);
+    pub fn on_close<T>(&self, cb: T)
+    where
+        T: FnMut(i32, String, i32) + 'static,
+    {
+        self.on_close_inner(Box::new(cb))
+    }
+
+    fn on_close_inner(&self, cb: OnCloseCallbackFn) {
         unsafe {
             mk_proxy_player_set_on_close(
                 self.0,
@@ -130,7 +136,7 @@ impl ProxyPlayerBuilder {
     }
 }
 
-pub type OnCloseCallbackFn = Box<dyn FnMut(i32, &str, i32) + 'static>;
+pub type OnCloseCallbackFn = Box<dyn FnMut(i32, String, i32) + 'static>;
 extern "C" fn proxy_player_on_close(
     user_data: *mut ::std::os::raw::c_void,
     err: ::std::os::raw::c_int,
@@ -139,6 +145,6 @@ extern "C" fn proxy_player_on_close(
 ) {
     unsafe {
         let cb: &mut OnCloseCallbackFn = std::mem::transmute(user_data);
-        cb(err, const_ptr_to_string!(what).as_str(), sys_err);
+        cb(err, const_ptr_to_string!(what), sys_err);
     };
 }

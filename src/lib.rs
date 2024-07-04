@@ -40,4 +40,7 @@ macro_rules! box_to_mut_void_ptr {
     ($a:ident) => {
         Box::into_raw(Box::new($a)) as *mut _
     };
+    ($a:expr) => {
+        Box::into_raw(Box::new($a)) as *mut _
+    };
 }

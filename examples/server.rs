@@ -129,9 +129,10 @@ async fn proxy_pull_worker(source: &str, app: &str, stream: &str, cancel: Cancel
         .stream(stream)
         .add_option("rtp_type", "0")
         .build();
-    let (tx, rx) = tokio::sync::oneshot::channel::<String>();
+    let poll_cancel = CancellationToken::new();
+    let poll_cancel_clone = poll_cancel.clone();
     player.on_close(move |_, _, _| {
-        let _ = tx.send(String::from(""));
+        poll_cancel_clone.cancel();
     });
     player.play(&source);
 
@@ -140,7 +141,7 @@ async fn proxy_pull_worker(source: &str, app: &str, stream: &str, cancel: Cancel
             _ = cancel.cancelled() => {
                 break;
             },
-            _ = rx => {
+            _ = poll_cancel.cancelled() => {
                 // todo retry
                 break;
             }

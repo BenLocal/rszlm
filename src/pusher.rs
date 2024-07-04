@@ -28,11 +28,25 @@ impl Pusher {
         unsafe { mk_pusher_publish(self.0, url.as_ptr()) }
     }
 
-    pub fn on_result(&self, cb: OnEventCallbackFn) {
+    pub fn on_result<T>(&self, cb: T)
+    where
+        T: FnMut(i32, String) + 'static,
+    {
+        self.on_result_inner(Box::new(cb))
+    }
+
+    fn on_result_inner(&self, cb: OnEventCallbackFn) {
         unsafe { mk_pusher_set_on_result(self.0, Some(on_push_event), box_to_mut_void_ptr!(cb)) }
     }
 
-    pub fn on_shutdown(&self, cb: OnEventCallbackFn) {
+    pub fn on_shutdown<T>(&self, cb: T)
+    where
+        T: FnMut(i32, String) + 'static,
+    {
+        self.on_shutdown_inner(Box::new(cb))
+    }
+
+    pub fn on_shutdown_inner(&self, cb: OnEventCallbackFn) {
         unsafe { mk_pusher_set_on_result(self.0, Some(on_push_event), box_to_mut_void_ptr!(cb)) }
     }
 }
@@ -93,7 +107,7 @@ impl PusherBuilder {
     }
 }
 
-pub type OnEventCallbackFn = Box<dyn FnMut(i32, &str) + 'static>;
+pub type OnEventCallbackFn = Box<dyn FnMut(i32, String) + 'static>;
 extern "C" fn on_push_event(
     user_data: *mut ::std::os::raw::c_void,
     err_code: ::std::os::raw::c_int,
@@ -101,6 +115,6 @@ extern "C" fn on_push_event(
 ) {
     unsafe {
         let cb: &mut OnEventCallbackFn = std::mem::transmute(user_data);
-        cb(err_code, const_ptr_to_string!(err_msg).as_str());
+        cb(err_code, const_ptr_to_string!(err_msg));
     };
 }
