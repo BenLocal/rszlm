@@ -139,6 +139,8 @@ fn link_static(zlm_link_path: &PathBuf) {
         println!("cargo:rustc-link-lib=c++");
         println!("cargo:rustc-link-lib=framework=Foundation");
     } else if target_os == "linux" || target_os == "android" {
+        println!("cargo:rustc-link-lib=ssl");
+        println!("cargo:rustc-link-lib=crypto");
         println!("cargo:rustc-link-lib=stdc++");
     }
 }
