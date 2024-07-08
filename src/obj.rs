@@ -1,8 +1,12 @@
-use std::ptr;
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    ptr::{self, null_mut},
+};
 
 use rszlm_sys::*;
 
-use crate::{const_ptr_to_string, const_str_to_ptr};
+use crate::{box_to_mut_void_ptr, const_ptr_to_string, const_str_to_ptr};
 
 #[derive(Debug)]
 pub struct SockInfo(mk_sock_info);
@@ -295,8 +299,48 @@ impl Parser {
         unsafe { const_ptr_to_string!(mk_parser_get_header(self.0, key.as_ptr())) }
     }
 
-    pub fn body(&self) -> String {
+    pub fn protocol(&self) -> String {
         unsafe { const_ptr_to_string!(mk_parser_get_tail(self.0)) }
+    }
+
+    pub fn body(&self) -> String {
+        unsafe { const_ptr_to_string!(mk_parser_get_content(self.0, null_mut() as *mut _)) }
+    }
+
+    pub fn headers(&self) -> HashMap<String, String> {
+        let headers = std::rc::Rc::new(RefCell::new(HashMap::new()));
+
+        let headers_clone = headers.clone();
+        self.headers_for_each(Box::new(move |key, val| {
+            headers_clone.borrow_mut().insert(key, val);
+        }));
+
+        let tmp = headers.as_ref().borrow().to_owned();
+        tmp
+    }
+
+    fn headers_for_each(&self, cb: ParserHeadersForEachCallbackFn) {
+        unsafe {
+            mk_parser_headers_for_each(
+                self.0,
+                Some(parser_headers_for_each),
+                box_to_mut_void_ptr!(cb),
+            )
+        }
+    }
+}
+
+type ParserHeadersForEachCallbackFn = Box<dyn FnMut(String, String) + 'static>;
+extern "C" fn parser_headers_for_each(
+    user_data: *mut ::std::os::raw::c_void,
+    key: *const ::std::os::raw::c_char,
+    val: *const ::std::os::raw::c_char,
+) {
+    unsafe {
+        let cb: &mut ParserHeadersForEachCallbackFn = std::mem::transmute(user_data);
+        let key = const_ptr_to_string!(key);
+        let val = const_ptr_to_string!(val);
+        cb(key, val);
     }
 }
 

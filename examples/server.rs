@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use axum::response::IntoResponse;
 use axum::{body::Body, routing::get, Router};
@@ -269,12 +270,22 @@ fn start_zlm_background(
                     };
 
                     let uri = format!("http://127.0.0.1:{}{}", AXUM_PORT, path_query);
-                    if let Ok(req) = hyper::Request::builder()
+                    let headers = msg.parser.headers();
+
+                    if let Ok(mut req) = hyper::Request::builder()
                         .method(msg.parser.method().as_str())
                         .uri(uri)
                         .body(Body::from(msg.parser.body()))
                     {
-                        // TODO copy request headers
+                        if !headers.is_empty() {
+                            for (k, v) in headers {
+                                req.headers_mut().insert(
+                                    hyper::http::HeaderName::from_str(&k).unwrap(),
+                                    hyper::http::HeaderValue::from_str(&v).unwrap(),
+                                );
+                            }
+                        }
+
                         let resp = runtime.block_on(async move {
                             CLIENT
                                 .request(req)
