@@ -1,3 +1,5 @@
+use std::os::raw::c_char;
+
 use rszlm_sys::*;
 
 use crate::obj::CodecId;
@@ -15,7 +17,7 @@ impl Frame {
                 codec_id.into(),
                 dts,
                 pts,
-                buf.as_ptr() as *const i8,
+                buf.as_ptr() as *const c_char,
                 buf.len(),
                 None,
                 std::ptr::null_mut(),

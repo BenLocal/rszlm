@@ -1,4 +1,4 @@
-use std::ptr;
+use std::{os::raw::c_char, ptr};
 
 use rszlm_sys::*;
 
@@ -394,7 +394,13 @@ impl From<mk_rtc_transport> for RtcTransport {
 impl RtcTransport {
     pub fn send_datachannel(&self, data: &[u8], sid: u16, ppid: u32) {
         unsafe {
-            mk_rtc_send_datachannel(self.0, sid, ppid, data.as_ptr() as *const i8, data.len())
+            mk_rtc_send_datachannel(
+                self.0,
+                sid,
+                ppid,
+                data.as_ptr() as *const c_char,
+                data.len(),
+            )
         }
     }
 }
