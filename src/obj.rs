@@ -300,6 +300,10 @@ impl Parser {
         unsafe { const_ptr_to_string!(mk_parser_get_header(self.0, key.as_ptr())) }
     }
 
+    pub fn protocol(&self) -> String {
+        unsafe { const_ptr_to_string!(mk_parser_get_tail(self.0)) }
+    }
+
     pub fn body(&self) -> String {
         unsafe { const_ptr_to_string!(mk_parser_get_content(self.0, null_mut() as *mut _)) }
     }
