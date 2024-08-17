@@ -2,7 +2,7 @@ workspace = { members = ["rszlm-sys"] }
 
 [package]
 name = "rszlm"
-version = "0.1.9"
+version = "0.1.10"
 edition = "2021"
 authors = ["shiben. <benshi0v0@gmail.com>"]
 description = "ZLMediaKit rust api"

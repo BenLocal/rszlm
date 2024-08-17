@@ -44,7 +44,3 @@ cargo build
   ```toml
   rszlm = { version = "*", features = ["webrtc"] }
   ```
-
-### examples
-
-example 中使用了`ffmpeg-next`，运行前请参照[dependencies](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building#dependencies)安装相关环境

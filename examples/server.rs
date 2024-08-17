@@ -230,7 +230,7 @@ fn start_zlm_background(
                     }));
                 } else {
                     let _ = tx_clone.blocking_send(ProxyMessageCmd::Start(StartProxyMessage {
-                        source: "rtsp://admin:iflytek@2030@192.168.0.14:554/t01/1".to_string(),
+                        source: "rtsp://192.168.0.14:554/t01/1".to_string(),
                         app,
                         stream,
                     }));
