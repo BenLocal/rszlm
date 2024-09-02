@@ -8,7 +8,9 @@ pub fn rtc_server_start(port: u16) {
     }
 }
 
-pub type WebrtcAnswerSdpCallbackFn = Box<dyn FnMut(String, String) + 'static>;
+/// get answer sdp
+/// - return (answer, err)
+pub type WebrtcAnswerSdpCallbackFn = Box<dyn FnMut(Option<String>, Option<String>) + 'static>;
 
 pub fn get_answer_sdp(cb: WebrtcAnswerSdpCallbackFn, typ: &str, offer: &str, url: &str) {
     let typ = const_str_to_ptr!(typ);
@@ -31,7 +33,17 @@ extern "C" fn on_webrtc_get_answer_sdp(
     err: *const ::std::os::raw::c_char,
 ) {
     let cb: &mut WebrtcAnswerSdpCallbackFn = unsafe { std::mem::transmute(user_data) };
+    let answer = if answer.is_null() {
+        None
+    } else {
+        unsafe { Some(const_ptr_to_string!(answer)) }
+    };
 
-    let (answer, err) = unsafe { (const_ptr_to_string!(answer), const_ptr_to_string!(err)) };
+    let err = if err.is_null() {
+        None
+    } else {
+        unsafe { Some(const_ptr_to_string!(err)) }
+    };
+
     cb(answer, err);
 }
