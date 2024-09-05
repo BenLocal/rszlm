@@ -271,7 +271,8 @@ fn start_zlm_background(
 
                     let uri = format!("http://127.0.0.1:{}{}", AXUM_PORT, path_query);
                     let headers = msg.parser.headers();
-
+                    println!("uri: {}", uri);
+                    println!("headers: {:?}", headers);
                     if let Ok(mut req) = hyper::Request::builder()
                         .method(msg.parser.method().as_str())
                         .uri(uri)

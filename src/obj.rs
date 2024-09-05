@@ -311,9 +311,11 @@ impl Parser {
     pub fn headers(&self) -> HashMap<String, String> {
         let headers = std::rc::Rc::new(RefCell::new(HashMap::new()));
 
-        let headers_clone = headers.clone();
-        self.headers_for_each(Box::new(move |key, val| {
-            headers_clone.borrow_mut().insert(key, val);
+        self.headers_for_each(Box::new({
+            let headers_clone = headers.clone();
+            move |key, val| {
+                headers_clone.borrow_mut().insert(key, val);
+            }
         }));
 
         let tmp = headers.as_ref().borrow().to_owned();
@@ -331,14 +333,14 @@ impl Parser {
     }
 }
 
-type ParserHeadersForEachCallbackFn = Box<dyn FnMut(String, String) + 'static>;
+type ParserHeadersForEachCallbackFn = Box<dyn Fn(String, String) + 'static>;
 extern "C" fn parser_headers_for_each(
     user_data: *mut ::std::os::raw::c_void,
     key: *const ::std::os::raw::c_char,
     val: *const ::std::os::raw::c_char,
 ) {
     unsafe {
-        let cb: &mut ParserHeadersForEachCallbackFn = std::mem::transmute(user_data);
+        let cb: &ParserHeadersForEachCallbackFn = std::mem::transmute(user_data);
         let key = const_ptr_to_string!(key);
         let val = const_ptr_to_string!(val);
         cb(key, val);
