@@ -70,6 +70,12 @@ fn build() -> io::Result<()> {
 
     let mut cmake = cmake::Config::new(&src_path());
 
+    // Add parallel build configuration
+    #[cfg(target_os = "windows")]
+    cmake.define("CMAKE_BUILD_PARALLEL_LEVEL", num_cpus::get().to_string());
+    #[cfg(not(target_os = "windows"))]
+    cmake.build_arg(format!("-j{}", num_cpus::get()));
+
     cmake
         .uses_cxx11()
         .profile("Release")

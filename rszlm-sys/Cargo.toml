@@ -15,11 +15,12 @@ doctest = false
 openssl-sys = { version = "0.9", optional = true }
 
 [build-dependencies]
-bindgen = "0.69"
+bindgen = "0.71.1"
 pkg-config = "0.3"
 openssl-sys = { version = "0.9", optional = true }
 cc = "1"
 cmake = "0.1"
+num_cpus = "1.15"
 
 [features]
 default = []
