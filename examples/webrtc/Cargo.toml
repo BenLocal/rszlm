@@ -1,0 +1,7 @@
+[package]
+name = "webrtc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rszlm = { path = "../..", features = ["static", "webrtc"] }
