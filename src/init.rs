@@ -167,5 +167,11 @@ impl Drop for EnvIni {
     }
 }
 
+impl AsRef<mk_ini> for EnvIni {
+    fn as_ref(&self) -> &mk_ini {
+        &self.0
+    }
+}
+
 unsafe impl Send for EnvIni {}
 unsafe impl Sync for EnvIni {}

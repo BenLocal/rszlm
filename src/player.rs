@@ -148,3 +148,40 @@ extern "C" fn proxy_player_on_close(
         cb(err, const_ptr_to_string!(what), sys_err);
     };
 }
+
+pub struct Mp4ProxyPlayer;
+
+impl Mp4ProxyPlayer {
+    pub fn new(
+        vhost: &str,
+        app: &str,
+        stream: &str,
+        file_path: &str,
+        file_repeat: i32,
+        ini: Option<EnvIni>,
+    ) {
+        unsafe {
+            let vhost = const_str_to_ptr!(vhost);
+            let app = const_str_to_ptr!(app);
+            let stream = const_str_to_ptr!(stream);
+            let file_path = const_str_to_ptr!(file_path);
+            match ini {
+                Some(ini) => mk_load_mp4_file2(
+                    vhost.as_ptr(),
+                    app.as_ptr(),
+                    stream.as_ptr(),
+                    file_path.as_ptr(),
+                    file_repeat,
+                    *ini.as_ref(),
+                ),
+                None => mk_load_mp4_file(
+                    vhost.as_ptr(),
+                    app.as_ptr(),
+                    stream.as_ptr(),
+                    file_path.as_ptr(),
+                    file_repeat,
+                ),
+            }
+        }
+    }
+}
