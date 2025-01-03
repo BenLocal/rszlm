@@ -1,0 +1,9 @@
+[package]
+name = "mp4"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rszlm = { path = "../..", features = ["static"] }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
