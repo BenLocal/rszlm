@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rszlm_sys::*;
 
-use crate::{box_to_mut_void_ptr, const_ptr_to_string, const_str_to_ptr};
+use crate::{box_to_mut_void_ptr, const_ptr_to_string, const_str_to_ptr, init::EnvIni};
 
 pub struct ProxyPlayer(mk_proxy_player);
 

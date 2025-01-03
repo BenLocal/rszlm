@@ -241,7 +241,9 @@ fn find_libsrtp2() {
         .statik(is_static())
         .probe("libsrtp2")
     {
-        println!("find libsrtp2 from pkg_config");
+        println!(
+            "find libsrtp2 from pkg_config, if you want to use webrtc, please install libsrtp2"
+        );
     } else {
         build_srtp();
         // check srtp build result
