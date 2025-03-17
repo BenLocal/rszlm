@@ -181,11 +181,27 @@ fn select_static_libs(zlm_link_path: &PathBuf) -> io::Result<Vec<String>> {
         .collect::<Vec<_>>())
 }
 
+fn expand_env_vars(value: &str) -> String {
+    let re = regex::Regex::new(r"\$\{([A-Za-z0-9_]+)\}").unwrap();
+    let mut result = value.to_string();
+
+    while let Some(caps) = re.captures(&result) {
+        if let Some(matched) = caps.get(0) {
+            let var_name = &caps[1];
+            if let Ok(var_value) = env::var(var_name) {
+                result = result.replace(matched.as_str(), &var_value);
+            }
+        }
+    }
+
+    result
+}
+
 fn buildgen() {
     let is_static = is_static();
 
     let (zlm_install_include, zlm_install_lib) = if env::var("ZLM_DIR").is_ok() {
-        let zlm_install = PathBuf::from(env::var("ZLM_DIR").unwrap());
+        let zlm_install = PathBuf::from(expand_env_vars(&env::var("ZLM_DIR").unwrap()));
         println!(
             "cargo:rustc-link-search=native={}",
             &zlm_install.join("lib").to_string_lossy()

@@ -21,6 +21,7 @@ openssl-sys = { version = "0.9", optional = true }
 cc = "1"
 cmake = "0.1"
 num_cpus = "1.15"
+regex = "1.5"
 
 [features]
 default = []
