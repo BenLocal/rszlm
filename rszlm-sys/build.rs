@@ -76,10 +76,7 @@ fn build() -> io::Result<()> {
     #[cfg(not(target_os = "windows"))]
     cmake.build_arg(format!("-j{}", num_cpus::get()));
 
-    cmake
-        .uses_cxx11()
-        .profile("Release")
-        .out_dir(&src_install_path());
+    cmake.profile("Release").out_dir(&src_install_path());
 
     if is_static() {
         cmake.define("ENABLE_API_STATIC_LIB", "ON");
