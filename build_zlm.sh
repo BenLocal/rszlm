@@ -1,4 +1,4 @@
-git clone --depth 1 https://gitee.com/xia-chu/ZLMediaKit
+git clone --depth 1 https://github.com/ZLMediaKit/ZLMediaKit.git
 cd ZLMediaKit
 git submodule update --init --recursive
 mkdir build
