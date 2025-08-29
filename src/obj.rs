@@ -357,8 +357,28 @@ impl From<mk_parser> for Parser {
 }
 
 pub enum CodecId {
+    // 0
     H264,
+    // 1
     H265,
+    // 2
+    AAC,
+    // 3
+    G711A,
+    // 4
+    G711U,
+    // 5
+    Opus,
+    // 6
+    L16,
+    // 7
+    VP8,
+    // 8
+    VP9,
+    // 9
+    AV1,
+    // 10
+    JPEG,
 }
 
 /// i do not why
@@ -370,8 +390,17 @@ pub enum CodecId {
 impl Into<i32> for CodecId {
     fn into(self) -> i32 {
         match self {
-            CodecId::H264 => 0,
-            CodecId::H265 => 1,
+            VideoCodecId::H264 => 0,
+            VideoCodecId::H265 => 1,
+            CodecId::AAC => 2,
+            CodecId::G711A => 3,
+            CodecId::G711U => 4,
+            CodecId::Opus => 5,
+            CodecId::L16 => 6,
+            VideoCodecId::VP8 => 7,
+            VideoCodecId::VP9 => 8,
+            VideoCodecId::AV1 => 9,
+            VideoCodecId::JPEG => 10,
         }
     }
 }
@@ -382,6 +411,15 @@ impl Into<i32> for CodecId {
         match self {
             CodecId::H264 => unsafe { MKCodecH264 },
             CodecId::H265 => unsafe { MKCodecH265 },
+            CodecId::VP8 => unsafe { MKCodecVP8 },
+            CodecId::VP9 => unsafe { MKCodecVP9 },
+            CodecId::AV1 => unsafe { MKCodecAV1 },
+            CodecId::JPEG => unsafe { MKCodecJPEG },
+            CodecId::AAC => unsafe { MKCodecAAC },
+            CodecId::G711A => unsafe { MKCodecG711A },
+            CodecId::G711U => unsafe { MKCodecG711U },
+            CodecId::Opus => unsafe { MKCodecOpus },
+            CodecId::L16 => unsafe { MKCodecL16 },
         }
     }
 }
