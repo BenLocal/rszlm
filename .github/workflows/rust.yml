@@ -17,5 +17,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: install dependencies
         run: sudo apt install -y clang libavcodec-dev libavformat-dev libavutil-dev pkg-config libsrtp2-dev
+      - name: Install ZLMediaKit
+        run: |
+          ./build_zlm.sh
       - name: Build
         run: cargo build -vv
