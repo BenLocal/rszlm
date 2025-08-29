@@ -1,6 +1,10 @@
 use rszlm_sys::*;
 
-use crate::{const_str_to_ptr, frame::Frame, obj::Track};
+use crate::{
+    const_str_to_ptr,
+    frame::Frame,
+    obj::{CodecId, Track},
+};
 
 pub struct Media(mk_media);
 
@@ -33,6 +37,32 @@ impl Media {
         unsafe { mk_media_init_track(self.0, track.inner()) }
     }
 
+    pub fn init_video(
+        &self,
+        codec_id: CodecId,
+        width: i32,
+        height: i32,
+        fps: f32,
+        bit_rate: i32,
+    ) -> bool {
+        unsafe { mk_media_init_video(self.0, codec_id.into(), width, height, fps, bit_rate) == 1 }
+    }
+
+    pub fn init_audio(
+        &self,
+        codec_id: CodecId,
+        sample_rate: i32,
+        channels: i32,
+        bit_rate: i32,
+    ) -> bool {
+        unsafe {
+            mk_media_init_audio(self.0, codec_id.into(), sample_rate, channels, bit_rate) == 1
+        }
+    }
+
+    /// 初始化h264/h265/aac完毕后调用此函数，
+    /// 在单track(只有音频或视频)时，因为ZLMediaKit不知道后续是否还要添加track，所以会多等待3秒钟
+    /// 如果产生的流是单Track类型，请调用此函数以便加快流生成速度，当然不调用该函数，影响也不大(会多等待3秒)
     pub fn init_complete(&self) {
         unsafe { mk_media_init_complete(self.0) }
     }

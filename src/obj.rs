@@ -147,7 +147,7 @@ impl Track {
                 video: codec_args__bindgen_ty_1 {
                     width: v.width,
                     height: v.height,
-                    fps: v.fps,
+                    fps: v.fps as i32,
                 },
             },
             Some(CodecArgs::Audio(a)) => codec_args {
@@ -226,7 +226,10 @@ pub enum CodecArgs {
 pub struct VideoCodecArgs {
     pub width: i32,
     pub height: i32,
-    pub fps: i32,
+    /// frames per second
+    /// codec_args struct in mk_track.h, fps is int
+    /// I use f32 here to keep consistent with other places
+    pub fps: f32,
 }
 
 pub struct AudioCodecArgs {
