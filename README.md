@@ -16,7 +16,6 @@ ZLMediaKit rust api
    - 编译并安装好 ZLMediaKit 后，设置环境变量 `ZLM_DIR`，该路径需包含 ZLMediaKit 的 `include`、`lib` 和 `bin` 文件夹，并将 `bin` 添加到 `PATH` 环境变量中。
    - 如果未设置 `ZLM_DIR`，`rszlm-sys` 会自动拉取 ZLMediaKit 源码进行编译。
 
-
 ### 编译
 
 ```shell
@@ -47,5 +46,6 @@ cargo build
   ```
 
 参考
+
 - [ZLMediaKit](https://github.com/ZLMediaKit/ZLMediaKit)
 - [rust-bindgen](https://github.com/rust-lang/rust-bindgen)
