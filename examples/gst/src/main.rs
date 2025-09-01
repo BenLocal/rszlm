@@ -1,11 +1,15 @@
-use std::sync::Arc;
+use std::{
+    fs::OpenOptions,
+    io::Write as _,
+    sync::{Arc, Mutex},
+};
 
 use gstreamer::prelude::*;
 use rszlm::{
     init::{EnvIni, EnvInitBuilder},
     media::Media,
     obj::CodecId,
-    server::http_server_start,
+    server::{http_server_start, rtmp_server_start, rtsp_server_start},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -34,15 +38,39 @@ fn run_test_video() {
     let src = gstreamer::ElementFactory::make("videotestsrc")
         .property_from_str("pattern", "ball")
         .property_from_str("is-live", "true")
+        //    .property("key-int-max", 30) // 每30帧一个关键帧
+        // .property("bframes", 0) // 禁用B帧，简化时间戳处理
         .build()
         .expect("Failed to create videotestsrc element");
 
     let enc = gstreamer::ElementFactory::make("x264enc")
         .property_from_str("tune", "zerolatency")
         .property_from_str("speed-preset", "ultrafast")
+        .property("byte-stream", true)
         .build()
         .expect("Failed to create x264enc element");
-    let appsink = gstreamer_app::AppSink::builder().build();
+    let parse = gstreamer::ElementFactory::make("h264parse")
+        .property("config-interval", -1i32) // 每个IDR前插入SPS/PPS
+        .build()
+        .expect("Failed to create h264parse element");
+    let capsfilter = gstreamer::ElementFactory::make("capsfilter")
+        .property(
+            "caps",
+            gstreamer::Caps::builder("video/x-h264")
+                .field("stream-format", "byte-stream") // 关键：Annex-B格式
+                .field("alignment", "au") // 访问单元对齐
+                .build(),
+        )
+        .build()
+        .expect("Failed to create capsfilter");
+    let appsink = gstreamer_app::AppSink::builder()
+        .caps(
+            &gstreamer::Caps::builder("video/x-h264")
+                .field("stream-format", "byte-stream")
+                .field("alignment", "au")
+                .build(),
+        )
+        .build();
 
     let media = Arc::new(Media::new(
         "__defaultVhost__",
@@ -52,10 +80,16 @@ fn run_test_video() {
         false,
         false,
     ));
-
-    let mut init_track = false;
-
+    media.init_track(&rszlm::obj::Track::new(CodecId::H264, None));
+    media.init_complete();
+    println!("Media created");
     let media_clone = media.clone();
+
+    std::fs::remove_file("output.h264").ok();
+    use std::sync::atomic::{AtomicU64, Ordering};
+    let start_time = Arc::new(AtomicU64::new(0));
+    let start_time_clone = start_time.clone();
+    // let mut file_clone = h264_file.clone();
     appsink.set_callbacks(
         gstreamer_app::AppSinkCallbacks::builder()
             .new_sample(move |appsink| {
@@ -67,31 +101,53 @@ fn run_test_video() {
                         let buffer = sample.buffer().unwrap();
                         let pts = buffer.pts().unwrap();
                         let dts = buffer.dts().unwrap_or(pts);
+                        let duration = buffer.duration().unwrap_or(gstreamer::ClockTime::ZERO);
 
-                        if !init_track {
-                            let structure = sample.caps().unwrap().structure(0).unwrap();
-                            let width = structure.get::<i32>("width").unwrap();
-                            let height = structure.get::<i32>("height").unwrap();
-                            let fps = structure.get::<gstreamer::Fraction>("framerate").unwrap();
-                            media_clone.init_video(
-                                CodecId::H264,
-                                width,
-                                height,
-                                (fps.numer() as f32) / (fps.denom() as f32),
-                                0,
-                            );
-                            media_clone.init_complete();
-                            init_track = true;
-                        }
                         let map = buffer.map_readable().unwrap();
                         let data = map.as_slice();
-                        let frame = rszlm::frame::Frame::new(
-                            CodecId::H264,
-                            dts.nseconds(),
-                            pts.nseconds(),
-                            data.to_vec(),
-                        );
-                        media_clone.input_frame(&frame);
+                        if data.len() < 4 {
+                            return; // 数据太小，忽略
+                        }
+
+                        let mut file = std::fs::File::options()
+                            .create(true)
+                            .append(true)
+                            .open("output.h264")
+                            .unwrap();
+                        file.write_all(data).unwrap();
+
+                        let start_ns = start_time_clone.load(Ordering::Relaxed);
+                        if start_ns == 0 {
+                            start_time_clone.store(dts.nseconds(), Ordering::Relaxed);
+                        }
+                        let start_offset = start_time_clone.load(Ordering::Relaxed);
+                        
+                        let dts_ms = (dts.nseconds().saturating_sub(start_offset)) / 1_000_000;
+                        let pts_ms = (pts.nseconds().saturating_sub(start_offset)) / 1_000_000;
+                        let duration_ms = duration.nseconds() / 1_000_000;
+
+                        let frame =
+                            rszlm::frame::Frame::new(CodecId::H264, dts_ms, pts_ms, data.to_vec());
+                        if !media_clone.input_frame(&frame) {
+                            eprintln!(
+                                "Failed to input frame: pts={} dts={} duration={} size={} valid_h264={}",
+                                dts_ms,
+                                pts_ms,
+                                duration_ms,
+                                data.len(),
+                                validate_h264_stream(data)
+                            );
+                        } else {
+                            // println!(
+                            //     "Frame input: pts={} dts={} duration={} size={} valid_h264={}",
+                            //     dts_ms,
+                            //     pts_ms,
+                            //     duration_ms,
+                            //     data.len(),
+                            //     validate_h264_stream(data)
+                            // );
+                        }
+       
                     })
                     .map_err(|_| gstreamer::FlowError::Eos)?;
                 Ok(gstreamer::FlowSuccess::Ok)
@@ -101,11 +157,12 @@ fn run_test_video() {
 
     let appsinkel = appsink.upcast_ref();
     pipeline
-        .add_many(&[&src, &enc, &appsinkel])
+        .add_many(&[&src, &enc, &parse, &capsfilter, &appsinkel])
         .expect("Failed to add elements to pipeline");
 
     // 连接
-    gstreamer::Element::link_many(&[&src, &enc, &appsinkel]).expect("Failed to link src, enc, pay");
+    gstreamer::Element::link_many(&[&src, &enc, &parse, &capsfilter, &appsinkel])
+        .expect("Failed to link src, enc, pay");
     pipeline
         .set_state(gstreamer::State::Playing)
         .expect("Unable to set the pipeline to the `Playing` state");
@@ -138,6 +195,16 @@ fn run_test_video() {
         });
 }
 
+fn validate_h264_stream(data: &[u8]) -> bool {
+    if data.len() < 4 {
+        return false;
+    }
+
+    // 检查是否以start code开头 (0x00 0x00 0x00 0x01 或 0x00 0x00 0x01)
+    (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0x01)
+        || (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x01)
+}
+
 fn run_zlm(cancel: CancellationToken) {
     let _ = std::thread::Builder::new()
         .name("zlm_serve".to_string())
@@ -147,20 +214,10 @@ fn run_zlm(cancel: CancellationToken) {
                 .log_mask(0)
                 .thread_num(20)
                 .build();
-            {
-                let ini = EnvIni::global().lock().unwrap();
-                ini.set_option_int("protocol.hls_demand", 1);
-                ini.set_option_int("protocol.rtsp_demand", 1);
-                ini.set_option_int("protocol.rtmp_demand", 1);
-                ini.set_option_int("protocol.ts_demand", 1);
-                ini.set_option_int("protocol.fmp4_demand", 1);
-
-                println!("ini: {}", ini.dump());
-            }
 
             http_server_start(8553, false);
-            http_server_start(8554, false);
-            http_server_start(8555, false);
+            rtsp_server_start(8554, false);
+            rtmp_server_start(8555, false);
 
             loop {
                 if cancel.is_cancelled() {

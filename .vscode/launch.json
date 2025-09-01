@@ -28,6 +28,25 @@
       },
       "args": [],
       "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug example 'gst'",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=gst",
+
+          "--manifest-path=${workspaceFolder}/examples/gst/Cargo.toml"
+        ],
+        "filter": {
+          "name": "gst",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
     }
   ]
 }
