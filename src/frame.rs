@@ -1,4 +1,4 @@
-use std::os::raw::c_char;
+use std::{os::raw::c_char, sync::Arc};
 
 use rszlm_sys::*;
 
@@ -11,6 +11,7 @@ impl Frame {
         self.0
     }
 
+    // cb是None时, 内部会做数据拷贝
     pub fn new<T: AsRef<[u8]>>(codec_id: CodecId, dts: u64, pts: u64, buf: T) -> Self {
         Self(unsafe {
             mk_frame_create(
@@ -21,6 +22,35 @@ impl Frame {
                 buf.as_ref().len(),
                 None,
                 std::ptr::null_mut(),
+            )
+        })
+    }
+
+    pub fn new_zero_copy(codec_id: CodecId, dts: u64, pts: u64, data: Arc<[u8]>) -> Self {
+        unsafe extern "C" fn release_arc_data(
+            user_data: *mut ::std::os::raw::c_void,
+            _ptr: *mut ::std::os::raw::c_char,
+        ) {
+            if !user_data.is_null() {
+                // release the Arc
+                let _ = Box::from_raw(user_data as *mut Arc<[u8]>);
+            }
+        }
+
+        let data_ptr = data.as_ptr() as *const c_char;
+        let data_len = data.len();
+
+        let user_data = Box::into_raw(Box::new(data)) as *mut ::std::os::raw::c_void;
+
+        Self(unsafe {
+            mk_frame_create(
+                codec_id.into(),
+                dts,
+                pts,
+                data_ptr,
+                data_len,
+                Some(release_arc_data),
+                user_data,
             )
         })
     }

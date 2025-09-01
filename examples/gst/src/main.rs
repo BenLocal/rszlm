@@ -85,6 +85,7 @@ fn run_test_video() {
     let start_time = Arc::new(AtomicU64::new(0));
     let start_time_clone = start_time.clone();
     let mut track_initialized = false;
+    let copy_frame = false;
     appsink.set_callbacks(
         gstreamer_app::AppSinkCallbacks::builder()
             .new_sample(move |appsink| {
@@ -131,26 +132,51 @@ fn run_test_video() {
                             return; // 数据太小，忽略
                         }
 
-                        // just for debug
-                        let mut file = std::fs::File::options()
-                            .create(true)
-                            .append(true)
-                            .open("output.h264")
-                            .unwrap();
-                        file.write_all(data).unwrap();
-
-                        let frame =
-                            rszlm::frame::Frame::new(CodecId::H264, dts_ms, pts_ms, data);
-                        if !media_clone.input_frame(&frame) {
-                            eprintln!(
-                                "Failed to input frame: pts={} dts={} duration={} size={} valid_h264={}",
-                                dts_ms,
-                                pts_ms,
-                                duration_ms,
-                                data.len(),
-                                validate_h264_stream(data)
-                            );
-                        }
+                         if copy_frame {
+                            // just for debug
+                            let mut file = std::fs::File::options()
+                                .create(true)
+                                .append(true)
+                                .open("output.h264")
+                                .unwrap();
+                            file.write_all(data).unwrap();
+    
+                            let frame =
+                                rszlm::frame::Frame::new(CodecId::H264, dts_ms, pts_ms, data);
+                            if !media_clone.input_frame(&frame) {
+                                eprintln!(
+                                    "Failed to input frame: pts={} dts={} duration={} size={} valid_h264={}",
+                                    dts_ms,
+                                    pts_ms,
+                                    duration_ms,
+                                    data.len(),
+                                    validate_h264_stream(data)
+                                );
+                            }
+                        } else {
+                            let shared_data = Arc::<[u8]>::from(data);
+                            // just for debug
+                            let mut file = std::fs::File::options()
+                                .create(true)
+                                .append(true)
+                                .open("output.h264")
+                                .unwrap();
+                            file.write_all(&shared_data).unwrap();
+    
+                            let frame =
+                                rszlm::frame::Frame::new_zero_copy(CodecId::H264, dts_ms, pts_ms, shared_data);
+                            if !media_clone.input_frame(&frame) {
+                                eprintln!(
+                                    "Failed to input frame: pts={} dts={} duration={} size={} valid_h264={}",
+                                    dts_ms,
+                                    pts_ms,
+                                    duration_ms,
+                                    data.len(),
+                                    validate_h264_stream(data)
+                                );
+                            }
+                        };
+                       
                     })
                     .map_err(|_| gstreamer::FlowError::Eos)?;
                 Ok(gstreamer::FlowSuccess::Ok)
