@@ -9,7 +9,7 @@ use rszlm::{
     frame::H264Splitter,
     init::{EnvIni, EnvInitBuilder},
     media::Media,
-    obj::CodecId,
+    obj::{CodecArgs, CodecId, VideoCodecArgs},
     server::{http_server_start, rtmp_server_start, rtsp_server_start},
 };
 use tokio_util::sync::CancellationToken;
@@ -81,31 +81,23 @@ fn run_test_video() {
         false,
         false,
     ));
-    media.init_track(&rszlm::obj::Track::new(CodecId::H264, None));
+
+    media.init_track(&rszlm::obj::Track::new(
+        CodecId::H264,
+        Some(CodecArgs::Video(VideoCodecArgs {
+            width: 320,
+            height: 240,
+            fps: 30.0,
+        })),
+    ));
     media.init_complete();
     println!("Media created");
     let media_clone = media.clone();
-
-    let mut dts = 0;
-    let sp = Arc::new(H264Splitter::new(
-        Box::new(move |data: &[u8]| {
-            let frame = rszlm::frame::Frame::new(CodecId::H264, dts, dts, data);
-            if !media_clone.input_frame(&frame) {
-                eprintln!("Failed to input frame from splitter, size={}", data.len());
-            } else {
-                // println!("Frame input from splitter, size={}", data.len());
-            }
-
-            dts += 40;
-        }),
-        false,
-    ));
 
     std::fs::remove_file("output.h264").ok();
     use std::sync::atomic::{AtomicU64, Ordering};
     let start_time = Arc::new(AtomicU64::new(0));
     let start_time_clone = start_time.clone();
-    let sp_clone = sp.clone();
     // let mut file_clone = h264_file.clone();
     appsink.set_callbacks(
         gstreamer_app::AppSinkCallbacks::builder()
@@ -142,29 +134,28 @@ fn run_test_video() {
                         let dts_ms = (dts.nseconds().saturating_sub(start_offset)) / 1_000_000;
                         let pts_ms = (pts.nseconds().saturating_sub(start_offset)) / 1_000_000;
                         let duration_ms = duration.nseconds() / 1_000_000;
-                        sp_clone.input(data);
 
-                        // let frame =
-                        //     rszlm::frame::Frame::new(CodecId::H264, dts_ms, pts_ms, data);
-                        // if !media_clone.input_frame(&frame) {
-                        //     eprintln!(
-                        //         "Failed to input frame: pts={} dts={} duration={} size={} valid_h264={}",
-                        //         dts_ms,
-                        //         pts_ms,
-                        //         duration_ms,
-                        //         data.len(),
-                        //         validate_h264_stream(data)
-                        //     );
-                        // } else {
-                        //     // println!(
-                        //     //     "Frame input: pts={} dts={} duration={} size={} valid_h264={}",
-                        //     //     dts_ms,
-                        //     //     pts_ms,
-                        //     //     duration_ms,
-                        //     //     data.len(),
-                        //     //     validate_h264_stream(data)
-                        //     // );
-                        // }
+                        let frame =
+                            rszlm::frame::Frame::new(CodecId::H264, dts_ms, pts_ms, data);
+                        if !media_clone.input_frame(&frame) {
+                            eprintln!(
+                                "Failed to input frame: pts={} dts={} duration={} size={} valid_h264={}",
+                                dts_ms,
+                                pts_ms,
+                                duration_ms,
+                                data.len(),
+                                validate_h264_stream(data)
+                            );
+                        } else {
+                            // println!(
+                            //     "Frame input: pts={} dts={} duration={} size={} valid_h264={}",
+                            //     dts_ms,
+                            //     pts_ms,
+                            //     duration_ms,
+                            //     data.len(),
+                            //     validate_h264_stream(data)
+                            // );
+                        }
                     })
                     .map_err(|_| gstreamer::FlowError::Eos)?;
                 Ok(gstreamer::FlowSuccess::Ok)
