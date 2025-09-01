@@ -1,80 +1,52 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in library 'rszlm-sys'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--lib",
-                    "--package=rszlm-sys"
-                ],
-                "filter": {
-                    "name": "rszlm-sys",
-                    "kind": "lib"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in library 'rszlm'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--lib",
-                    "--package=rszlm"
-                ],
-                "filter": {
-                    "name": "rszlm",
-                    "kind": "lib"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug example 'server'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=server",
-                    "--package=rszlm"
-                ],
-                "filter": {
-                    "name": "server",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in example 'server'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--example=server",
-                    "--package=rszlm"
-                ],
-                "filter": {
-                    "name": "server",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in library 'rszlm-sys'",
+      "cargo": {
+        "args": ["test", "--no-run", "--lib", "--package=rszlm-sys"],
+        "filter": {
+          "name": "rszlm-sys",
+          "kind": "lib"
         }
-    ]
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in library 'rszlm'",
+      "cargo": {
+        "args": ["test", "--no-run", "--lib", "--package=rszlm"],
+        "filter": {
+          "name": "rszlm",
+          "kind": "lib"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug example 'gst'",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=gst",
+
+          "--manifest-path=${workspaceFolder}/examples/gst/Cargo.toml"
+        ],
+        "filter": {
+          "name": "gst",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
 }
