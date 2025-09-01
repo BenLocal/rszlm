@@ -1,13 +1,8 @@
-use std::{
-    fs::OpenOptions,
-    io::Write as _,
-    sync::{Arc, Mutex},
-};
+use std::{io::Write as _, sync::Arc};
 
 use gstreamer::prelude::*;
 use rszlm::{
-    frame::H264Splitter,
-    init::{EnvIni, EnvInitBuilder},
+    init::EnvInitBuilder,
     media::Media,
     obj::{CodecArgs, CodecId, VideoCodecArgs},
     server::{http_server_start, rtmp_server_start, rtsp_server_start},
