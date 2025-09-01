@@ -17,6 +17,9 @@ async fn main() {
     run_test_video();
 
     tokio::signal::ctrl_c().await.unwrap();
+    cancel.cancel();
+    println!("Shutting down...");
+    std::thread::sleep(std::time::Duration::from_secs(1));
 }
 
 fn run_test_video() {
