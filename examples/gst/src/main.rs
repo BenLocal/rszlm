@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::{io::Write as _, sync::Arc};
 
 use gstreamer::prelude::*;
@@ -68,6 +69,9 @@ fn run_test_video() {
         )
         .build();
 
+    
+    std::fs::remove_file("output.h264").ok();
+
     let media = Arc::new(Media::new(
         "__defaultVhost__",
         "live",
@@ -77,23 +81,10 @@ fn run_test_video() {
         false,
     ));
 
-    media.init_track(&rszlm::obj::Track::new(
-        CodecId::H264,
-        Some(CodecArgs::Video(VideoCodecArgs {
-            width: 320,
-            height: 240,
-            fps: 30.0,
-        })),
-    ));
-    media.init_complete();
-    println!("Media created");
     let media_clone = media.clone();
-
-    std::fs::remove_file("output.h264").ok();
-    use std::sync::atomic::{AtomicU64, Ordering};
     let start_time = Arc::new(AtomicU64::new(0));
     let start_time_clone = start_time.clone();
-    // let mut file_clone = h264_file.clone();
+    let mut track_initialized = false;
     appsink.set_callbacks(
         gstreamer_app::AppSinkCallbacks::builder()
             .new_sample(move |appsink| {
@@ -107,19 +98,6 @@ fn run_test_video() {
                         let dts = buffer.dts().unwrap_or(pts);
                         let duration = buffer.duration().unwrap_or(gstreamer::ClockTime::ZERO);
 
-                        let map = buffer.map_readable().unwrap();
-                        let data = map.as_slice();
-                        if data.len() < 4 {
-                            return; // 数据太小，忽略
-                        }
-
-                        let mut file = std::fs::File::options()
-                            .create(true)
-                            .append(true)
-                            .open("output.h264")
-                            .unwrap();
-                        file.write_all(data).unwrap();
-
                         let start_ns = start_time_clone.load(Ordering::Relaxed);
                         if start_ns == 0 {
                             start_time_clone.store(dts.nseconds(), Ordering::Relaxed);
@@ -129,6 +107,37 @@ fn run_test_video() {
                         let dts_ms = (dts.nseconds().saturating_sub(start_offset)) / 1_000_000;
                         let pts_ms = (pts.nseconds().saturating_sub(start_offset)) / 1_000_000;
                         let duration_ms = duration.nseconds() / 1_000_000;
+                                    
+                        // 动态更新 media track 信息
+                        if !track_initialized {
+                            // 获取视频信息
+                            let (width, height, fps) = get_caps_info_from_sample(&sample);
+                            media_clone.init_track(&rszlm::obj::Track::new(
+                                CodecId::H264,
+                                Some(CodecArgs::Video(VideoCodecArgs {
+                                    width,
+                                    height,
+                                    fps,
+                                })),
+                            ));
+                            media_clone.init_complete();
+                            track_initialized = true;
+                        }
+
+
+                        let map = buffer.map_readable().unwrap();
+                        let data = map.as_slice();
+                        if data.len() < 4 {
+                            return; // 数据太小，忽略
+                        }
+
+                        // just for debug
+                        let mut file = std::fs::File::options()
+                            .create(true)
+                            .append(true)
+                            .open("output.h264")
+                            .unwrap();
+                        file.write_all(data).unwrap();
 
                         let frame =
                             rszlm::frame::Frame::new(CodecId::H264, dts_ms, pts_ms, data);
@@ -141,15 +150,6 @@ fn run_test_video() {
                                 data.len(),
                                 validate_h264_stream(data)
                             );
-                        } else {
-                            // println!(
-                            //     "Frame input: pts={} dts={} duration={} size={} valid_h264={}",
-                            //     dts_ms,
-                            //     pts_ms,
-                            //     duration_ms,
-                            //     data.len(),
-                            //     validate_h264_stream(data)
-                            // );
                         }
                     })
                     .map_err(|_| gstreamer::FlowError::Eos)?;
@@ -196,6 +196,26 @@ fn run_test_video() {
                 }
             }
         });
+}
+
+fn get_caps_info_from_sample(sample: &gstreamer::Sample) -> (i32, i32, f32) {
+    let caps = sample.caps().unwrap();
+    let structure = caps.structure(0).unwrap();
+
+    let width = structure.get::<i32>("width").unwrap_or(320);
+    let height = structure.get::<i32>("height").unwrap_or(240);
+    let framerate = structure
+        .get::<gstreamer::Fraction>("framerate")
+        .unwrap_or(gstreamer::Fraction::new(30, 1));
+
+    let fps = framerate.numer() as f32 / framerate.denom() as f32;
+
+    println!(
+        "Video info from caps: {}x{} @ {:.2} fps",
+        width, height, fps
+    );
+
+    (width, height, fps)
 }
 
 fn validate_h264_stream(data: &[u8]) -> bool {
