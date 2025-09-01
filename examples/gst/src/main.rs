@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use gstreamer::{glib, prelude::*};
+use gstreamer::prelude::*;
 use rszlm::{
     init::{EnvIni, EnvInitBuilder},
     media::Media,
