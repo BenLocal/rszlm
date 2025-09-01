@@ -83,3 +83,6 @@ impl From<mk_media> for Media {
         Media(sender)
     }
 }
+
+unsafe impl Send for Media {}
+unsafe impl Sync for Media {}
