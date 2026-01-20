@@ -45,7 +45,12 @@ cargo build
   rszlm = { version = "*", features = ["webrtc"] }
   ```
 
+### examples
+
+- [需要安装`gstreamer`相关依赖](https://gstreamer.freedesktop.org/documentation/installing/on-linux.html?gi-language=c)
+
 参考
 
 - [ZLMediaKit](https://github.com/ZLMediaKit/ZLMediaKit)
 - [rust-bindgen](https://github.com/rust-lang/rust-bindgen)
+- [ZLMediaKit-Build](https://github.com/BenLocal/ZLMediaKit-Build)
