@@ -28,10 +28,13 @@ macro_rules! const_ptr_to_string {
 #[macro_export]
 macro_rules! const_str_to_ptr {
     ($a:ident) => {
-        std::ffi::CString::new($a).unwrap()
+        std::ffi::CString::new($a.as_bytes().to_vec()).unwrap()
     };
     ($a:expr) => {
-        std::ffi::CString::new($a).unwrap()
+        std::ffi::CString::new($a.as_bytes().to_vec()).unwrap()
+    };
+    ($a:expr, $default:expr) => {
+        std::ffi::CString::new($a.unwrap_or($default).as_bytes().to_vec()).unwrap()
     };
 }
 
@@ -44,3 +47,5 @@ macro_rules! box_to_mut_void_ptr {
         Box::into_raw(Box::new($a)) as *mut _
     };
 }
+
+pub const DEFAULT_VHOST: &str = "__defaultVhost__";
