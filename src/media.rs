@@ -38,7 +38,7 @@ impl Media {
     /// * `vhost` - Virtual host name; `None` for default.
     /// * `app` - Application name (e.g. `"live"`).
     /// * `stream` - Stream ID.
-    /// * `duration` - Recording duration in seconds; `0.0` for no limit.
+    /// * `duration` - Duration in seconds; if live, set to 0.0.
     /// * `hls_enabled` - Whether to enable HLS output.
     /// * `mp4_enabled` - Whether to enable MP4 recording.
     pub fn new(
@@ -72,7 +72,7 @@ impl Media {
     /// * `vhost` - default vhost `__defaultVhost__`
     /// * `app` - Application name (e.g. `"live"`).
     /// * `stream` - Stream ID.
-    /// * `duration` - Recording duration in seconds; `0.0` for no limit.
+    /// * `duration` - Duration in seconds; if live, set to 0.0.
     /// * `hls_enabled` - Whether to enable HLS output.
     /// * `mp4_enabled` - Whether to enable MP4 recording.
     pub fn new_with_default_vhost(
