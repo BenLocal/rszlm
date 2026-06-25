@@ -338,24 +338,29 @@ fn buildgen() {
         );
         (zlm_install.join("include"), zlm_install.join("lib"))
     } else {
-        find_libsrtp2();
-
         println!(
             "cargo:rustc-link-search=native={}",
             src_install_path().join("lib").to_string_lossy()
         );
 
         if use_prebuilt() {
-            // download prebuilt binaries from the release unless already extracted
+            // download prebuilt binaries from the release unless already extracted.
+            // The prebuilt libmk_api.so already bundles WebRTC + libsrtp, so there
+            // is no separate libsrtp source build here (no `find_libsrtp2`).
             if std::fs::metadata(&src_install_path().join("include").join("mk_mediakit.h"))
                 .is_err()
             {
                 download_prebuilt().unwrap();
             }
-        } else if std::fs::metadata(&src_install_path().join("lib").join("libzlmediakit.a"))
-            .is_err()
-        {
-            build().unwrap();
+        } else {
+            // source build: ZLMediaKit (incl. the webrtc feature) needs libsrtp at
+            // build time, so resolve/build it before compiling ZLMediaKit.
+            find_libsrtp2();
+            if std::fs::metadata(&src_install_path().join("lib").join("libzlmediakit.a"))
+                .is_err()
+            {
+                build().unwrap();
+            }
         }
 
         (
