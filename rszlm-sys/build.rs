@@ -300,19 +300,14 @@ fn select_static_libs(zlm_link_path: &PathBuf) -> io::Result<Vec<String>> {
 }
 
 fn expand_env_vars(value: &str) -> String {
+    // Single pass: each `${VAR}` -> its env value (empty if unset). The previous
+    // loop-until-no-match version hung forever when a referenced var was unset
+    // (the match stayed, `result` never changed).
     let re = regex::Regex::new(r"\$\{([A-Za-z0-9_]+)\}").unwrap();
-    let mut result = value.to_string();
-
-    while let Some(caps) = re.captures(&result) {
-        if let Some(matched) = caps.get(0) {
-            let var_name = &caps[1];
-            if let Ok(var_value) = env::var(var_name) {
-                result = result.replace(matched.as_str(), &var_value);
-            }
-        }
-    }
-
-    result
+    re.replace_all(value, |caps: &regex::Captures| {
+        env::var(&caps[1]).unwrap_or_default()
+    })
+    .into_owned()
 }
 
 fn buildgen() {
