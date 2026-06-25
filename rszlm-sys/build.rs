@@ -422,6 +422,10 @@ fn build_srtp() {
     cmake
         .profile("Release")
         //.define("ENABLE_OPENSSL", "ON")
+        // libsrtp 2.3.0 declares a tentative `bit_string` global in a shared
+        // header; under GCC 10+ (default -fno-common) that collides at link
+        // time ("multiple definition of `bit_string`"). Restore -fcommon.
+        .cflag("-fcommon")
         .out_dir(&out_dir().join("srtp-install"))
         .register_dep("OPENSSL");
 
