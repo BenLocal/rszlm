@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # Pinned prebuilt ZLMediaKit release (dynamic libmk_api). Matches
+  # .cargo/config.toml; override the tag here to test a different build.
+  ZLM_RELEASE_URL: https://github.com/BenLocal/ZLMediaKit-Build/releases/latest/download
+
+jobs:
+  # Compile the library on every OS via the prebuilt-download path (dynamic).
+  # rszlm-sys downloads the matching zlmediakit_master_<os>_<arch>_latest asset,
+  # generates bindings with bindgen, and compiles src/. No local ZLMediaKit build.
+  build:
+    name: build / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu = linux/amd64, macos-latest = macos/arm64, windows = windows/amd64
+        # — each has a matching prebuilt release asset.
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # bindgen needs libclang on every platform.
+      - name: Install LLVM/Clang (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y llvm-dev libclang-dev clang
+
+      - name: Install LLVM/Clang (Windows)
+        if: runner.os == 'Windows'
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "18"
+      # macOS ships clang/libclang with the Xcode command-line tools.
+
+      - name: Build (dynamic, default features)
+        run: cargo build -p rszlm --verbose
+
+  # Full workspace incl. examples on Linux (gst needs system GStreamer; mp4/server
+  # link the dynamic library). Catches link-time issues the rlib build above skips.
+  workspace-linux:
+    name: workspace+examples / ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install system deps (clang + GStreamer for the gst example)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm-dev libclang-dev clang \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+      - name: Build workspace
+        run: cargo build --workspace --verbose
+
+  # webrtc feature builds libsrtp from source (cmake) — exercises the -fcommon
+  # fix and webrtc.rs. Dynamic link, so no local ZLMediaKit build needed.
+  webrtc-linux:
+    name: webrtc feature / ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y llvm-dev libclang-dev clang cmake
+      - name: Build with webrtc
+        run: cargo build -p rszlm --features webrtc --verbose
+
+  # Formatting (no ZLMediaKit needed).
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all --check
