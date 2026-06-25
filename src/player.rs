@@ -145,11 +145,13 @@ pub type OnCloseCallbackFn = Box<dyn FnMut(i32, String, i32) + Send + Sync + 'st
 
 /// Frees the boxed callback when ZLMediaKit's shared_ptr deleter fires.
 extern "C" fn free_on_close_cb(user_data: *mut ::std::os::raw::c_void) {
-    if !user_data.is_null() {
-        unsafe {
-            let _ = Box::from_raw(user_data as *mut OnCloseCallbackFn);
+    crate::ffi_guard(|| {
+        if !user_data.is_null() {
+            unsafe {
+                let _ = Box::from_raw(user_data as *mut OnCloseCallbackFn);
+            }
         }
-    }
+    });
 }
 
 extern "C" fn proxy_player_on_close(
@@ -158,10 +160,10 @@ extern "C" fn proxy_player_on_close(
     what: *const ::std::os::raw::c_char,
     sys_err: ::std::os::raw::c_int,
 ) {
-    unsafe {
+    crate::ffi_guard(|| unsafe {
         let cb: &mut OnCloseCallbackFn = std::mem::transmute(user_data);
         cb(err, const_ptr_to_string!(what), sys_err);
-    };
+    });
 }
 
 pub struct Mp4ProxyPlayer;

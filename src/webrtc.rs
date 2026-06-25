@@ -31,29 +31,33 @@ pub fn get_answer_sdp(cb: WebrtcAnswerSdpCallbackFn, typ: &str, offer: &str, url
 /// Reclaims the boxed callback once ZLMediaKit is done with it (called after
 /// `on_webrtc_get_answer_sdp`). Replaces the previous no-op free, which leaked.
 extern "C" fn free_answer_sdp_cb(user_data: *mut ::std::os::raw::c_void) {
-    if !user_data.is_null() {
-        unsafe {
-            let _ = Box::from_raw(user_data as *mut WebrtcAnswerSdpCallbackFn);
+    crate::ffi_guard(|| {
+        if !user_data.is_null() {
+            unsafe {
+                let _ = Box::from_raw(user_data as *mut WebrtcAnswerSdpCallbackFn);
+            }
         }
-    }
+    });
 }
 extern "C" fn on_webrtc_get_answer_sdp(
     user_data: *mut ::std::os::raw::c_void,
     answer: *const ::std::os::raw::c_char,
     err: *const ::std::os::raw::c_char,
 ) {
-    let cb: &WebrtcAnswerSdpCallbackFn = unsafe { std::mem::transmute(user_data) };
-    let answer = if answer.is_null() {
-        None
-    } else {
-        unsafe { Some(const_ptr_to_string!(answer)) }
-    };
+    crate::ffi_guard(|| {
+        let cb: &WebrtcAnswerSdpCallbackFn = unsafe { std::mem::transmute(user_data) };
+        let answer = if answer.is_null() {
+            None
+        } else {
+            unsafe { Some(const_ptr_to_string!(answer)) }
+        };
 
-    let err = if err.is_null() {
-        None
-    } else {
-        unsafe { Some(const_ptr_to_string!(err)) }
-    };
+        let err = if err.is_null() {
+            None
+        } else {
+            unsafe { Some(const_ptr_to_string!(err)) }
+        };
 
-    cb(answer, err);
+        cb(answer, err);
+    });
 }

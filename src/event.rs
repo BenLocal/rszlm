@@ -213,9 +213,11 @@ pub enum RtcSctpStateMessage {
 }
 
 extern "C" fn on_mk_rtc_sctp_failed(rtc_transport: mk_rtc_transport) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_failed {
-        cb(RtcSctpStateMessage::Failed(rtc_transport.into()));
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_failed {
+            cb(RtcSctpStateMessage::Failed(rtc_transport.into()));
+        }
+    });
 }
 
 extern "C" fn on_mk_rtc_sctp_received(
@@ -225,43 +227,53 @@ extern "C" fn on_mk_rtc_sctp_received(
     msg: *const u8,
     len: usize,
 ) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_received {
-        let data = unsafe { std::slice::from_raw_parts(msg, len) };
-        cb(RtcSctpStateMessage::Received(
-            rtc_transport.into(),
-            stream_id,
-            ppid,
-            data.to_vec(),
-        ));
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_received {
+            let data = unsafe { std::slice::from_raw_parts(msg, len) };
+            cb(RtcSctpStateMessage::Received(
+                rtc_transport.into(),
+                stream_id,
+                ppid,
+                data.to_vec(),
+            ));
+        }
+    });
 }
 
 extern "C" fn on_mk_rtc_sctp_send(rtc_transport: mk_rtc_transport, msg: *const u8, len: usize) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_send {
-        let data = unsafe { std::slice::from_raw_parts(msg, len) };
-        cb(RtcSctpStateMessage::Send(
-            rtc_transport.into(),
-            data.to_vec(),
-        ));
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_send {
+            let data = unsafe { std::slice::from_raw_parts(msg, len) };
+            cb(RtcSctpStateMessage::Send(
+                rtc_transport.into(),
+                data.to_vec(),
+            ));
+        }
+    });
 }
 
 extern "C" fn on_mk_rtc_sctp_closed(rtc_transport: mk_rtc_transport) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_closed {
-        cb(RtcSctpStateMessage::Closed(rtc_transport.into()));
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_closed {
+            cb(RtcSctpStateMessage::Closed(rtc_transport.into()));
+        }
+    });
 }
 
 extern "C" fn on_mk_rtc_sctp_connected(rtc_transport: mk_rtc_transport) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_connected {
-        cb(RtcSctpStateMessage::Connected(rtc_transport.into()));
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_connected {
+            cb(RtcSctpStateMessage::Connected(rtc_transport.into()));
+        }
+    });
 }
 
 extern "C" fn on_mk_rtc_sctp_connecting(rtc_transport: mk_rtc_transport) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_connecting {
-        cb(RtcSctpStateMessage::Connecting(rtc_transport.into()));
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_connecting {
+            cb(RtcSctpStateMessage::Connecting(rtc_transport.into()));
+        }
+    });
 }
 
 pub struct MediaSendRtpStopMessage {
@@ -281,27 +293,29 @@ extern "C" fn on_mk_media_send_rtp_stop(
     err: ::std::os::raw::c_int,
     msg: *const ::std::os::raw::c_char,
 ) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_media_send_rtp_stop {
-        let (vhost, app, stream, ssrc, err, msg) = unsafe {
-            (
-                const_ptr_to_string!(vhost),
-                const_ptr_to_string!(app),
-                const_ptr_to_string!(stream),
-                const_ptr_to_string!(ssrc),
-                err,
-                const_ptr_to_string!(msg),
-            )
-        };
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_media_send_rtp_stop {
+            let (vhost, app, stream, ssrc, err, msg) = unsafe {
+                (
+                    const_ptr_to_string!(vhost),
+                    const_ptr_to_string!(app),
+                    const_ptr_to_string!(stream),
+                    const_ptr_to_string!(ssrc),
+                    err,
+                    const_ptr_to_string!(msg),
+                )
+            };
 
-        cb(MediaSendRtpStopMessage {
-            vhost,
-            app,
-            stream,
-            ssrc,
-            err,
-            msg,
-        })
-    }
+            cb(MediaSendRtpStopMessage {
+                vhost,
+                app,
+                stream,
+                ssrc,
+                err,
+                msg,
+            })
+        }
+    });
 }
 
 pub struct LogMessage {
@@ -319,23 +333,25 @@ extern "C" fn on_mk_log(
     function: *const ::std::os::raw::c_char,
     message: *const ::std::os::raw::c_char,
 ) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_log {
-        let (file, function, message) = unsafe {
-            (
-                const_ptr_to_string!(file),
-                const_ptr_to_string!(function),
-                const_ptr_to_string!(message),
-            )
-        };
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_log {
+            let (file, function, message) = unsafe {
+                (
+                    const_ptr_to_string!(file),
+                    const_ptr_to_string!(function),
+                    const_ptr_to_string!(message),
+                )
+            };
 
-        cb(LogMessage {
-            level,
-            file,
-            line,
-            function,
-            message,
-        })
-    }
+            cb(LogMessage {
+                level,
+                file,
+                line,
+                function,
+                message,
+            })
+        }
+    });
 }
 
 pub struct FlowReportMessage {
@@ -353,15 +369,17 @@ extern "C" fn on_mk_flow_report(
     is_player: ::std::os::raw::c_int,
     sender: mk_sock_info,
 ) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_flow_report {
-        cb(FlowReportMessage {
-            url_info: url_info.into(),
-            total_bytes,
-            total_seconds,
-            is_player: is_player != 0,
-            sender: sender.into(),
-        })
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_flow_report {
+            cb(FlowReportMessage {
+                url_info: url_info.into(),
+                total_bytes,
+                total_seconds,
+                is_player: is_player != 0,
+                sender: sender.into(),
+            })
+        }
+    });
 }
 
 pub struct ShellLoginMessage {
@@ -377,20 +395,22 @@ extern "C" fn on_mk_shell_login(
     invoker: mk_auth_invoker,
     sender: mk_sock_info,
 ) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_shell_login {
-        let (u, p) = unsafe {
-            (
-                const_ptr_to_string!(user_name),
-                const_ptr_to_string!(passwd),
-            )
-        };
-        cb(ShellLoginMessage {
-            user_name: u,
-            passwd: p,
-            invoker: AuthInvoker::from(invoker),
-            sender: SockInfo::from(sender),
-        })
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_shell_login {
+            let (u, p) = unsafe {
+                (
+                    const_ptr_to_string!(user_name),
+                    const_ptr_to_string!(passwd),
+                )
+            };
+            cb(ShellLoginMessage {
+                user_name: u,
+                passwd: p,
+                invoker: AuthInvoker::from(invoker),
+                sender: SockInfo::from(sender),
+            })
+        }
+    });
 }
 
 pub struct RecordTsMessage {
@@ -398,11 +418,13 @@ pub struct RecordTsMessage {
 }
 
 extern "C" fn on_mk_record_ts(ts: mk_record_info) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_record_ts {
-        cb(RecordTsMessage {
-            ts: RecordInfo::from(ts),
-        })
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_record_ts {
+            cb(RecordTsMessage {
+                ts: RecordInfo::from(ts),
+            })
+        }
+    });
 }
 
 pub struct RecordMp4Message {
@@ -410,11 +432,13 @@ pub struct RecordMp4Message {
 }
 
 extern "C" fn on_mk_record_mp4(mp4: mk_record_info) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_record_mp4 {
-        cb(RecordMp4Message {
-            mp4: RecordInfo::from(mp4),
-        })
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_record_mp4 {
+            cb(RecordMp4Message {
+                mp4: RecordInfo::from(mp4),
+            })
+        }
+    });
 }
 
 extern "C" fn on_mk_rtsp_auth(
@@ -425,19 +449,21 @@ extern "C" fn on_mk_rtsp_auth(
     invoker: mk_rtsp_auth_invoker,
     sender: mk_sock_info,
 ) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_rtsp_auth {
-        let (realm, user_name) =
-            unsafe { (const_ptr_to_string!(realm), const_ptr_to_string!(user_name)) };
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_rtsp_auth {
+            let (realm, user_name) =
+                unsafe { (const_ptr_to_string!(realm), const_ptr_to_string!(user_name)) };
 
-        cb(RtspAuthMessage {
-            url_info: url_info.into(),
-            realm,
-            user_name,
-            must_no_encrypt: must_no_encrypt != 0,
-            invoker: invoker.into(),
-            sender: sender.into(),
-        })
-    }
+            cb(RtspAuthMessage {
+                url_info: url_info.into(),
+                realm,
+                user_name,
+                must_no_encrypt: must_no_encrypt != 0,
+                invoker: invoker.into(),
+                sender: sender.into(),
+            })
+        }
+    });
 }
 
 pub struct RtspAuthMessage {
@@ -454,13 +480,15 @@ extern "C" fn on_mk_rtsp_get_realm(
     invoker: mk_rtsp_get_realm_invoker,
     sender: mk_sock_info,
 ) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_rtsp_get_realm {
-        cb(RtspGetRealmMessage {
-            url_info: url_info.into(),
-            sender: sender.into(),
-            invoker: invoker.into(),
-        })
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_rtsp_get_realm {
+            cb(RtspGetRealmMessage {
+                url_info: url_info.into(),
+                sender: sender.into(),
+                invoker: invoker.into(),
+            })
+        }
+    });
 }
 
 pub struct RtspGetRealmMessage {
@@ -541,34 +569,36 @@ extern "C" fn on_mk_http_before_access(
     path: *mut ::std::os::raw::c_char,
     sender: mk_sock_info,
 ) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_http_before_access {
-        let old_path = unsafe { const_ptr_to_string!(path) };
-        // ZLMediaKit expects the redirect path to be written *in place* into the
-        // existing `path` buffer (see mk_events.h: "覆盖path参数...可以重定向").
-        // The buffer capacity is unknown, but it held `old_path` + NUL, so we
-        // cap the write at that length to avoid overflow (longer paths truncate).
-        let cap = old_path.len();
-        let new_path = cb(HttpBeforeRequestMessage {
-            sender: sender.into(),
-            parser: parser.into(),
-            path: old_path,
-        });
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_http_before_access {
+            let old_path = unsafe { const_ptr_to_string!(path) };
+            // ZLMediaKit expects the redirect path to be written *in place* into the
+            // existing `path` buffer (see mk_events.h: "覆盖path参数...可以重定向").
+            // The buffer capacity is unknown, but it held `old_path` + NUL, so we
+            // cap the write at that length to avoid overflow (longer paths truncate).
+            let cap = old_path.len();
+            let new_path = cb(HttpBeforeRequestMessage {
+                sender: sender.into(),
+                parser: parser.into(),
+                path: old_path,
+            });
 
-        if let Ok(c) = CString::new(new_path) {
-            let bytes = c.as_bytes_with_nul();
-            let n = bytes.len().min(cap + 1);
-            if n > 0 {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        bytes.as_ptr() as *const ::std::os::raw::c_char,
-                        path,
-                        n,
-                    );
-                    *path.add(n - 1) = 0; // guarantee NUL termination on truncation
+            if let Ok(c) = CString::new(new_path) {
+                let bytes = c.as_bytes_with_nul();
+                let n = bytes.len().min(cap + 1);
+                if n > 0 {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            bytes.as_ptr() as *const ::std::os::raw::c_char,
+                            path,
+                            n,
+                        );
+                        *path.add(n - 1) = 0; // guarantee NUL termination on truncation
+                    }
                 }
             }
         }
-    }
+    });
 }
 
 pub struct HttpBeforeRequestMessage {
@@ -583,14 +613,16 @@ extern "C" fn on_mk_http_request(
     consumed: *mut ::std::os::raw::c_int,
     sender: mk_sock_info,
 ) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_http_request {
-        let res = cb(HttpRequestMessage {
-            sender: sender.into(),
-            parser: parser.into(),
-            invoker: HttpResponseInvoker::from(invoker),
-        });
-        unsafe { *consumed = res as i32 };
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_http_request {
+            let res = cb(HttpRequestMessage {
+                sender: sender.into(),
+                parser: parser.into(),
+                invoker: HttpResponseInvoker::from(invoker),
+            });
+            unsafe { *consumed = res as i32 };
+        }
+    });
 }
 
 #[derive(Debug)]
@@ -647,13 +679,15 @@ pub(crate) extern "C" fn on_mk_media_changed(
     regist: ::std::os::raw::c_int,
     sender: mk_media_source,
 ) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_media_changed {
-        match regist {
-            0 => cb(MediaChangedMessage::UnRegist(sender.into())),
-            1 => cb(MediaChangedMessage::Regist(sender.into())),
-            _ => {}
-        };
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_media_changed {
+            match regist {
+                0 => cb(MediaChangedMessage::UnRegist(sender.into())),
+                1 => cb(MediaChangedMessage::Regist(sender.into())),
+                _ => {}
+            };
+        }
+    });
 }
 
 pub enum MediaChangedMessage {
@@ -662,11 +696,13 @@ pub enum MediaChangedMessage {
 }
 
 pub(crate) extern "C" fn on_mk_media_no_reader(sender: mk_media_source) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_media_no_reader {
-        cb(MediaNoReaderMessage {
-            sender: sender.into(),
-        });
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_media_no_reader {
+            cb(MediaNoReaderMessage {
+                sender: sender.into(),
+            });
+        }
+    });
 }
 
 #[derive(Debug)]
@@ -678,14 +714,16 @@ pub(crate) extern "C" fn on_mk_media_not_found(
     url_info: mk_media_info,
     sender: mk_sock_info,
 ) -> std::os::raw::c_int {
-    if let Some(cb) = &EVENTS.read().unwrap().on_media_not_found {
-        return cb(MediaNotFoundMessage {
-            url_info: url_info.into(),
-            sock_info: sender.into(),
-        }) as i32;
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_media_not_found {
+            return cb(MediaNotFoundMessage {
+                url_info: url_info.into(),
+                sock_info: sender.into(),
+            }) as i32;
+        }
 
-    0
+        0
+    })
 }
 
 #[derive(Debug)]
@@ -699,21 +737,23 @@ pub(crate) extern "C" fn on_mk_media_play(
     invoker: mk_auth_invoker,
     sender: mk_sock_info,
 ) {
-    let invoker = AuthInvoker::new(invoker);
-    if let Some(cb) = &EVENTS.read().unwrap().on_media_play {
-        let url_info = MediaInfo::from(url_info);
-        let sock_info = SockInfo::from(sender);
+    crate::ffi_guard(|| {
+        let invoker = AuthInvoker::new(invoker);
+        if let Some(cb) = &EVENTS.read().unwrap().on_media_play {
+            let url_info = MediaInfo::from(url_info);
+            let sock_info = SockInfo::from(sender);
 
-        match cb(MediaPlayMessage {
-            url_info,
-            sender: sock_info,
-        }) {
-            Ok(_) => invoker.allow(),
-            Err(e) => invoker.deny(&format!("on_media_play callback error: {:?}", e)),
+            match cb(MediaPlayMessage {
+                url_info,
+                sender: sock_info,
+            }) {
+                Ok(_) => invoker.allow(),
+                Err(e) => invoker.deny(&format!("on_media_play callback error: {:?}", e)),
+            }
+        } else {
+            invoker.allow()
         }
-    } else {
-        invoker.allow()
-    }
+    });
 }
 
 #[derive(Debug)]
@@ -727,13 +767,15 @@ pub(crate) extern "C" fn on_mk_media_publish(
     invoker: mk_publish_auth_invoker,
     sender: mk_sock_info,
 ) {
-    if let Some(cb) = &EVENTS.read().unwrap().on_media_publish {
-        cb(MediaPublishMessage {
-            url_info: url_info.into(),
-            auth_invoker: invoker.into(),
-            sender_inner: sender.into(),
-        });
-    }
+    crate::ffi_guard(|| {
+        if let Some(cb) = &EVENTS.read().unwrap().on_media_publish {
+            cb(MediaPublishMessage {
+                url_info: url_info.into(),
+                auth_invoker: invoker.into(),
+                sender_inner: sender.into(),
+            });
+        }
+    });
 }
 
 pub struct MediaPublishMessage {

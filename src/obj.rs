@@ -343,12 +343,12 @@ extern "C" fn parser_headers_for_each(
     key: *const ::std::os::raw::c_char,
     val: *const ::std::os::raw::c_char,
 ) {
-    unsafe {
+    crate::ffi_guard(|| unsafe {
         let cb: &ParserHeadersForEachCallbackFn = std::mem::transmute(user_data);
         let key = const_ptr_to_string!(key);
         let val = const_ptr_to_string!(val);
         cb(key, val);
-    }
+    });
 }
 
 impl From<mk_parser> for Parser {

@@ -66,4 +66,14 @@ macro_rules! box_to_mut_void_ptr {
     };
 }
 
+/// Runs an FFI callback body, catching any panic so it can never unwind across
+/// the C boundary (unwinding into C is undefined behavior / aborts the process).
+///
+/// On panic the default panic hook still prints the message; this swallows the
+/// unwind and returns `R::default()` (`()` for the common void callbacks, `0`
+/// for the `c_int`-returning ones). Wrap every `extern "C"` trampoline with it.
+pub(crate) fn ffi_guard<R: Default>(f: impl FnOnce() -> R) -> R {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).unwrap_or_default()
+}
+
 pub const DEFAULT_VHOST: &str = "__defaultVhost__";

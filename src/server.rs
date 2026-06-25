@@ -94,29 +94,33 @@ type OnRtpServerDetachCallbackFn = Box<dyn FnMut() + Send + Sync + 'static>;
 
 /// Frees the boxed detach callback when ZLMediaKit's shared_ptr deleter fires.
 extern "C" fn free_on_detach_cb(user_data: *mut ::std::os::raw::c_void) {
-    if !user_data.is_null() {
-        unsafe {
-            let _ = Box::from_raw(user_data as *mut OnRtpServerDetachCallbackFn);
+    crate::ffi_guard(|| {
+        if !user_data.is_null() {
+            unsafe {
+                let _ = Box::from_raw(user_data as *mut OnRtpServerDetachCallbackFn);
+            }
         }
-    }
+    });
 }
 
 extern "C" fn on_rtp_server_detach(user_data: *mut ::std::os::raw::c_void) {
-    unsafe {
+    crate::ffi_guard(|| unsafe {
         let cb: &mut OnRtpServerDetachCallbackFn = std::mem::transmute(user_data);
         cb();
-    };
+    });
 }
 
 type OnRtpServerConnectedCallbackFn = Box<dyn FnMut(i32, String, i32) + Send + Sync + 'static>;
 
 /// Frees the boxed connected callback when ZLMediaKit's shared_ptr deleter fires.
 extern "C" fn free_on_connected_cb(user_data: *mut ::std::os::raw::c_void) {
-    if !user_data.is_null() {
-        unsafe {
-            let _ = Box::from_raw(user_data as *mut OnRtpServerConnectedCallbackFn);
+    crate::ffi_guard(|| {
+        if !user_data.is_null() {
+            unsafe {
+                let _ = Box::from_raw(user_data as *mut OnRtpServerConnectedCallbackFn);
+            }
         }
-    }
+    });
 }
 
 extern "C" fn on_rtp_server_connected(
@@ -125,10 +129,10 @@ extern "C" fn on_rtp_server_connected(
     what: *const ::std::os::raw::c_char,
     sys_err: ::std::os::raw::c_int,
 ) {
-    unsafe {
+    crate::ffi_guard(|| unsafe {
         let cb: &mut OnRtpServerConnectedCallbackFn = std::mem::transmute(user_data);
         cb(err, const_ptr_to_string!(what), sys_err);
-    };
+    });
 }
 
 impl Drop for RtpServer {

@@ -31,10 +31,14 @@ impl Frame {
             user_data: *mut ::std::os::raw::c_void,
             _ptr: *mut ::std::os::raw::c_char,
         ) {
-            if !user_data.is_null() {
-                // release the Arc
-                let _ = Box::from_raw(user_data as *mut Arc<[u8]>);
-            }
+            crate::ffi_guard(|| {
+                if !user_data.is_null() {
+                    // release the Arc
+                    unsafe {
+                        let _ = Box::from_raw(user_data as *mut Arc<[u8]>);
+                    }
+                }
+            });
         }
 
         let data_ptr = data.as_ptr() as *const c_char;
@@ -72,11 +76,11 @@ unsafe extern "C" fn on_mk_h264_splitter_frame(
     frame: *const ::std::os::raw::c_char,
     size: ::std::os::raw::c_int,
 ) {
-    unsafe {
+    crate::ffi_guard(|| unsafe {
         let data = std::slice::from_raw_parts(frame as *const u8, size as usize);
         let cb: &mut OnH264SplitterFrameFn = std::mem::transmute(user_data);
         cb(data);
-    };
+    });
 }
 
 pub struct H264Splitter(mk_h264_splitter, *mut ::std::os::raw::c_void);

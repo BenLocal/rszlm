@@ -126,11 +126,13 @@ pub type OnEventCallbackFn = Box<dyn FnMut(i32, String) + Send + Sync + 'static>
 /// Frees the boxed callback when ZLMediaKit's shared_ptr deleter fires
 /// (shared by `set_on_result2` / `set_on_shutdown2`).
 extern "C" fn free_on_event_cb(user_data: *mut ::std::os::raw::c_void) {
-    if !user_data.is_null() {
-        unsafe {
-            let _ = Box::from_raw(user_data as *mut OnEventCallbackFn);
+    crate::ffi_guard(|| {
+        if !user_data.is_null() {
+            unsafe {
+                let _ = Box::from_raw(user_data as *mut OnEventCallbackFn);
+            }
         }
-    }
+    });
 }
 
 extern "C" fn on_push_event(
@@ -138,8 +140,8 @@ extern "C" fn on_push_event(
     err_code: ::std::os::raw::c_int,
     err_msg: *const ::std::os::raw::c_char,
 ) {
-    unsafe {
+    crate::ffi_guard(|| unsafe {
         let cb: &mut OnEventCallbackFn = std::mem::transmute(user_data);
         cb(err_code, const_ptr_to_string!(err_msg));
-    };
+    });
 }
