@@ -244,8 +244,29 @@ fn build() -> io::Result<()> {
     Ok(())
 }
 
-fn link_dynamic(_zlm_link_path: &PathBuf) {
+fn link_dynamic(zlm_link_path: &PathBuf) {
     println!("cargo:rustc-link-lib=dylib=mk_api");
+
+    // The shared lib lives in OUT_DIR (or ZLM_DIR), which is not on any runtime
+    // search path — and `cargo:rustc-link-arg` rpath does NOT propagate to the
+    // dependent binary. So copy libmk_api.{so,dylib,dll} into Cargo's `deps` dir:
+    // `cargo run` / `cargo test` add that dir to the runtime library path, so the
+    // produced binary can load it without a manual LD_LIBRARY_PATH.
+    let so_name = match env::var("CARGO_CFG_TARGET_OS").unwrap().as_str() {
+        "windows" => "mk_api.dll",
+        "macos" | "ios" => "libmk_api.dylib",
+        _ => "libmk_api.so",
+    };
+    let src = zlm_link_path.join(so_name);
+    if src.exists() {
+        // OUT_DIR = <target>/[<triple>/]<profile>/build/<pkg>-<hash>/out
+        if let Some(profile_dir) = out_dir().ancestors().nth(3) {
+            let dst_dir = profile_dir.join("deps");
+            if std::fs::create_dir_all(&dst_dir).is_ok() {
+                let _ = std::fs::copy(&src, dst_dir.join(so_name));
+            }
+        }
+    }
 }
 
 fn link_static(zlm_link_path: &PathBuf) {
