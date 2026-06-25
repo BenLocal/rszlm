@@ -13,7 +13,7 @@ readme = "README.md"
 
 [dependencies]
 rszlm-sys = { path = "rszlm-sys", version = "0.1" }
-once_cell = "1.8"
+once_cell = "1"
 anyhow = "1"
 
 [features]
