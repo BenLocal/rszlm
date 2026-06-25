@@ -72,8 +72,21 @@ fn use_prebuilt() -> bool {
 
 /// Platform-specific asset file name inside a release, e.g.
 /// `zlmediakit_master_linux_amd64_latest.tar.gz`.
+///
+/// The default branch follows the active features: `webrtc` builds need the
+/// `feature_transcode2` package (it ships a `libmk_api` compiled with WebRTC),
+/// everything else uses `master`. `ZLM_BRANCH` overrides this.
+///
+/// Note: as of the current releases, `feature_transcode2` only ships
+/// linux/{amd64,arm64} — webrtc dynamic builds on macOS/Windows have no prebuilt
+/// and must set `ZLM_BUILD_FROM_SOURCE=1` (or point `ZLM_DIR` at a local build).
 fn prebuilt_asset_name() -> String {
-    let branch = env::var("ZLM_BRANCH").unwrap_or_else(|_| "master".to_string());
+    let default_branch = if cfg!(feature = "webrtc") {
+        "feature_transcode2"
+    } else {
+        "master"
+    };
+    let branch = env::var("ZLM_BRANCH").unwrap_or_else(|_| default_branch.to_string());
     let os = match env::var("CARGO_CFG_TARGET_OS").unwrap().as_str() {
         "windows" => "windows",
         "macos" => "macos",
