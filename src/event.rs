@@ -538,18 +538,36 @@ impl From<mk_rtsp_get_realm_invoker> for RtspGetRealmInvoker {
 
 extern "C" fn on_mk_http_before_access(
     parser: mk_parser,
-    mut path: *mut ::std::os::raw::c_char,
+    path: *mut ::std::os::raw::c_char,
     sender: mk_sock_info,
 ) {
     if let Some(cb) = &EVENTS.read().unwrap().on_http_before_access {
         let old_path = unsafe { const_ptr_to_string!(path) };
-        let u = cb(HttpBeforeRequestMessage {
+        // ZLMediaKit expects the redirect path to be written *in place* into the
+        // existing `path` buffer (see mk_events.h: "覆盖path参数...可以重定向").
+        // The buffer capacity is unknown, but it held `old_path` + NUL, so we
+        // cap the write at that length to avoid overflow (longer paths truncate).
+        let cap = old_path.len();
+        let new_path = cb(HttpBeforeRequestMessage {
             sender: sender.into(),
             parser: parser.into(),
             path: old_path,
         });
 
-        let _ = CString::new(u).map(|v| path = v.into_raw());
+        if let Ok(c) = CString::new(new_path) {
+            let bytes = c.as_bytes_with_nul();
+            let n = bytes.len().min(cap + 1);
+            if n > 0 {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        bytes.as_ptr() as *const ::std::os::raw::c_char,
+                        path,
+                        n,
+                    );
+                    *path.add(n - 1) = 0; // guarantee NUL termination on truncation
+                }
+            }
+        }
     }
 }
 
@@ -619,7 +637,7 @@ impl Drop for HttpResponseInvoker {
     fn drop(&mut self) {
         if self.1 {
             unsafe {
-                mk_http_response_invoker_clone(self.0);
+                mk_http_response_invoker_clone_release(self.0);
             }
         }
     }

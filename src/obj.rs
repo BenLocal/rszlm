@@ -14,10 +14,11 @@ pub struct SockInfo(mk_sock_info);
 
 impl SockInfo {
     pub fn peer_ip(&self) -> String {
-        unsafe {
-            let buf = [0; 64].as_mut_ptr().cast();
-            const_ptr_to_string!(mk_sock_info_peer_ip(self.0, buf))
-        }
+        // `buf` must be a named local so it outlives the C call; using
+        // `[0; 64].as_mut_ptr()` directly would dangle (the array temporary is
+        // dropped at the end of the `let`, before the C write).
+        let mut buf = [0u8; 64];
+        unsafe { const_ptr_to_string!(mk_sock_info_peer_ip(self.0, buf.as_mut_ptr().cast())) }
     }
 
     pub fn peer_port(&self) -> u16 {
@@ -25,10 +26,10 @@ impl SockInfo {
     }
 
     pub fn local_ip(&self) -> String {
-        unsafe {
-            let buf = [0; 32].as_mut_ptr().cast();
-            const_ptr_to_string!(mk_sock_info_local_ip(self.0, buf))
-        }
+        // Named local (see `peer_ip`); 64 bytes matches ZLMediaKit's expected
+        // buffer size and holds any IPv4/IPv6 textual address.
+        let mut buf = [0u8; 64];
+        unsafe { const_ptr_to_string!(mk_sock_info_local_ip(self.0, buf.as_mut_ptr().cast())) }
     }
 
     pub fn local_port(&self) -> u16 {
@@ -390,17 +391,17 @@ pub enum CodecId {
 impl Into<i32> for CodecId {
     fn into(self) -> i32 {
         match self {
-            VideoCodecId::H264 => 0,
-            VideoCodecId::H265 => 1,
+            CodecId::H264 => 0,
+            CodecId::H265 => 1,
             CodecId::AAC => 2,
             CodecId::G711A => 3,
             CodecId::G711U => 4,
             CodecId::Opus => 5,
             CodecId::L16 => 6,
-            VideoCodecId::VP8 => 7,
-            VideoCodecId::VP9 => 8,
-            VideoCodecId::AV1 => 9,
-            VideoCodecId::JPEG => 10,
+            CodecId::VP8 => 7,
+            CodecId::VP9 => 8,
+            CodecId::AV1 => 9,
+            CodecId::JPEG => 10,
         }
     }
 }

@@ -37,10 +37,13 @@ impl ProxyPlayer {
 
     fn on_close_inner(&self, cb: OnCloseCallbackFn) {
         unsafe {
-            mk_proxy_player_set_on_close(
+            // `*_on_close2` ties the boxed closure to ZLMediaKit's shared_ptr
+            // deleter, so it is freed on re-register and on player destruction.
+            mk_proxy_player_set_on_close2(
                 self.0,
                 Some(proxy_player_on_close),
                 box_to_mut_void_ptr!(cb),
+                Some(free_on_close_cb),
             )
         }
     }
@@ -137,6 +140,16 @@ impl ProxyPlayerBuilder {
 }
 
 pub type OnCloseCallbackFn = Box<dyn FnMut(i32, String, i32) + 'static>;
+
+/// Frees the boxed callback when ZLMediaKit's shared_ptr deleter fires.
+extern "C" fn free_on_close_cb(user_data: *mut ::std::os::raw::c_void) {
+    if !user_data.is_null() {
+        unsafe {
+            let _ = Box::from_raw(user_data as *mut OnCloseCallbackFn);
+        }
+    }
+}
+
 extern "C" fn proxy_player_on_close(
     user_data: *mut ::std::os::raw::c_void,
     err: ::std::os::raw::c_int,

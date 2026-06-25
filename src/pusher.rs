@@ -36,7 +36,14 @@ impl Pusher {
     }
 
     fn on_result_inner(&self, cb: OnEventCallbackFn) {
-        unsafe { mk_pusher_set_on_result(self.0, Some(on_push_event), box_to_mut_void_ptr!(cb)) }
+        unsafe {
+            mk_pusher_set_on_result2(
+                self.0,
+                Some(on_push_event),
+                box_to_mut_void_ptr!(cb),
+                Some(free_on_event_cb),
+            )
+        }
     }
 
     pub fn on_shutdown<T>(&self, cb: T)
@@ -46,8 +53,15 @@ impl Pusher {
         self.on_shutdown_inner(Box::new(cb))
     }
 
-    pub fn on_shutdown_inner(&self, cb: OnEventCallbackFn) {
-        unsafe { mk_pusher_set_on_result(self.0, Some(on_push_event), box_to_mut_void_ptr!(cb)) }
+    fn on_shutdown_inner(&self, cb: OnEventCallbackFn) {
+        unsafe {
+            mk_pusher_set_on_shutdown2(
+                self.0,
+                Some(on_push_event),
+                box_to_mut_void_ptr!(cb),
+                Some(free_on_event_cb),
+            )
+        }
     }
 }
 
@@ -108,6 +122,17 @@ impl PusherBuilder {
 }
 
 pub type OnEventCallbackFn = Box<dyn FnMut(i32, String) + 'static>;
+
+/// Frees the boxed callback when ZLMediaKit's shared_ptr deleter fires
+/// (shared by `set_on_result2` / `set_on_shutdown2`).
+extern "C" fn free_on_event_cb(user_data: *mut ::std::os::raw::c_void) {
+    if !user_data.is_null() {
+        unsafe {
+            let _ = Box::from_raw(user_data as *mut OnEventCallbackFn);
+        }
+    }
+}
+
 extern "C" fn on_push_event(
     user_data: *mut ::std::os::raw::c_void,
     err_code: ::std::os::raw::c_int,

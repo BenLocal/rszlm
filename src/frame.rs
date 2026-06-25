@@ -79,22 +79,34 @@ unsafe extern "C" fn on_mk_h264_splitter_frame(
     };
 }
 
-pub struct H264Splitter(mk_h264_splitter);
+pub struct H264Splitter(mk_h264_splitter, *mut ::std::os::raw::c_void);
 
 impl H264Splitter {
     pub fn new(on_frame: OnH264SplitterFrameFn, h265: bool) -> Self {
-        Self(unsafe {
-            mk_h264_splitter_create(
-                Some(on_mk_h264_splitter_frame),
-                box_to_mut_void_ptr!(on_frame),
-                h265 as i32,
-            )
-        })
+        let user_data: *mut ::std::os::raw::c_void = box_to_mut_void_ptr!(on_frame);
+        Self(
+            unsafe {
+                mk_h264_splitter_create(Some(on_mk_h264_splitter_frame), user_data, h265 as i32)
+            },
+            user_data,
+        )
     }
 
     pub fn input(&self, data: &[u8]) {
         unsafe {
             mk_h264_splitter_input_data(self.0, data.as_ptr() as *const c_char, data.len() as i32)
+        }
+    }
+}
+
+impl Drop for H264Splitter {
+    fn drop(&mut self) {
+        unsafe {
+            mk_h264_splitter_release(self.0);
+            if !self.1.is_null() {
+                // reclaim the boxed callback leaked into `user_data`
+                let _ = Box::from_raw(self.1 as *mut OnH264SplitterFrameFn);
+            }
         }
     }
 }

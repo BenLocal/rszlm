@@ -59,10 +59,11 @@ impl RtpServer {
 
     fn on_detach_inner(&self, cb: OnRtpServerDetachCallbackFn) {
         unsafe {
-            mk_rtp_server_set_on_detach(
+            mk_rtp_server_set_on_detach2(
                 self.0,
                 Some(on_rtp_server_detach),
                 box_to_mut_void_ptr!(cb),
+                Some(free_on_detach_cb),
             )
         }
     }
@@ -77,18 +78,29 @@ impl RtpServer {
     fn connect_inner(&self, url: &str, dst_port: u16, cb: OnRtpServerConnectedCallbackFn) {
         let url = const_str_to_ptr!(url);
         unsafe {
-            mk_rtp_server_connect(
+            mk_rtp_server_connect2(
                 self.0,
                 url.as_ptr(),
                 dst_port,
                 Some(on_rtp_server_connected),
                 box_to_mut_void_ptr!(cb),
+                Some(free_on_connected_cb),
             )
         }
     }
 }
 
 type OnRtpServerDetachCallbackFn = Box<dyn FnMut() + 'static>;
+
+/// Frees the boxed detach callback when ZLMediaKit's shared_ptr deleter fires.
+extern "C" fn free_on_detach_cb(user_data: *mut ::std::os::raw::c_void) {
+    if !user_data.is_null() {
+        unsafe {
+            let _ = Box::from_raw(user_data as *mut OnRtpServerDetachCallbackFn);
+        }
+    }
+}
+
 extern "C" fn on_rtp_server_detach(user_data: *mut ::std::os::raw::c_void) {
     unsafe {
         let cb: &mut OnRtpServerDetachCallbackFn = std::mem::transmute(user_data);
@@ -97,6 +109,16 @@ extern "C" fn on_rtp_server_detach(user_data: *mut ::std::os::raw::c_void) {
 }
 
 type OnRtpServerConnectedCallbackFn = Box<dyn FnMut(i32, String, i32) + 'static>;
+
+/// Frees the boxed connected callback when ZLMediaKit's shared_ptr deleter fires.
+extern "C" fn free_on_connected_cb(user_data: *mut ::std::os::raw::c_void) {
+    if !user_data.is_null() {
+        unsafe {
+            let _ = Box::from_raw(user_data as *mut OnRtpServerConnectedCallbackFn);
+        }
+    }
+}
+
 extern "C" fn on_rtp_server_connected(
     user_data: *mut ::std::os::raw::c_void,
     err: ::std::os::raw::c_int,

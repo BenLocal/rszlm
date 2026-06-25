@@ -1,6 +1,6 @@
 use rszlm_sys::*;
 
-use crate::{box_to_mut_void_ptr, const_ptr_to_string, const_str_to_ptr, obj::on_user_data_free};
+use crate::{box_to_mut_void_ptr, const_ptr_to_string, const_str_to_ptr};
 
 pub fn rtc_server_start(port: u16) {
     unsafe {
@@ -19,12 +19,22 @@ pub fn get_answer_sdp(cb: WebrtcAnswerSdpCallbackFn, typ: &str, offer: &str, url
     unsafe {
         mk_webrtc_get_answer_sdp2(
             box_to_mut_void_ptr!(cb),
-            Some(on_user_data_free),
+            Some(free_answer_sdp_cb),
             Some(on_webrtc_get_answer_sdp),
             typ.as_ptr(),
             offer.as_ptr(),
             url.as_ptr(),
         );
+    }
+}
+
+/// Reclaims the boxed callback once ZLMediaKit is done with it (called after
+/// `on_webrtc_get_answer_sdp`). Replaces the previous no-op free, which leaked.
+extern "C" fn free_answer_sdp_cb(user_data: *mut ::std::os::raw::c_void) {
+    if !user_data.is_null() {
+        unsafe {
+            let _ = Box::from_raw(user_data as *mut WebrtcAnswerSdpCallbackFn);
+        }
     }
 }
 extern "C" fn on_webrtc_get_answer_sdp(
