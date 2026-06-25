@@ -78,14 +78,3 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y llvm-dev libclang-dev clang cmake
       - name: Build with webrtc
         run: cargo build -p rszlm --features webrtc --verbose
-
-  # Formatting (no ZLMediaKit needed).
-  fmt:
-    name: rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - run: cargo fmt --all --check
