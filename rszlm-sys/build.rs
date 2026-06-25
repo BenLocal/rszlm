@@ -1,4 +1,4 @@
-use std::{env, io, path::PathBuf, process::Command};
+use std::{env, io, io::Read, path::PathBuf, process::Command};
 
 fn main() {
     std::thread::Builder::new()
@@ -43,6 +43,114 @@ fn git_src() -> String {
             "https://github.com/ZLMediaKit/ZLMediaKit".to_string()
         }
     })
+}
+
+/// Default base URL of the prebuilt ZLMediaKit release archives.
+///
+/// Uses GitHub's `/releases/latest/download/<asset>` redirect, which always
+/// resolves to the newest (non-prerelease) release, so it never goes stale.
+const DEFAULT_ZLM_RELEASE_URL: &str =
+    "https://github.com/BenLocal/ZLMediaKit-Build/releases/latest/download";
+
+/// Whether to acquire ZLMediaKit from a prebuilt release archive instead of
+/// compiling it from source.
+///
+/// The release archives expose the C API only through the dynamic
+/// `libmk_api.so` (the `mk_*` symbols live there, not in any bundled `.a`), so
+/// prebuilt download is only applicable to non-static (dynamic) builds; static
+/// builds fall through to a source build. Set `ZLM_BUILD_FROM_SOURCE=1` to
+/// force a source build for the dynamic case too.
+fn use_prebuilt() -> bool {
+    if is_static() {
+        return false;
+    }
+    !matches!(
+        env::var("ZLM_BUILD_FROM_SOURCE").as_deref(),
+        Ok("1") | Ok("true") | Ok("ON")
+    )
+}
+
+/// Platform-specific asset file name inside a release, e.g.
+/// `zlmediakit_master_linux_amd64_latest.tar.gz`.
+fn prebuilt_asset_name() -> String {
+    let branch = env::var("ZLM_BRANCH").unwrap_or_else(|_| "master".to_string());
+    let os = match env::var("CARGO_CFG_TARGET_OS").unwrap().as_str() {
+        "windows" => "windows",
+        "macos" => "macos",
+        "linux" => "linux",
+        other => unimplemented!("Unsupported target_os for prebuilt download: {}", other),
+    };
+    let arch = match env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str() {
+        "x86_64" => "amd64",
+        "aarch64" => "arm64",
+        other => unimplemented!("Unsupported target_arch for prebuilt download: {}", other),
+    };
+    let ext = if os == "windows" { "zip" } else { "tar.gz" };
+    format!("zlmediakit_{branch}_{os}_{arch}_latest.{ext}")
+}
+
+/// Full URL of the prebuilt archive to download.
+///
+/// Controlled by the `ZLM_RELEASE_URL` environment variable, which holds the
+/// release download address. It may be either:
+///   * a base URL (the default), to which the platform asset name is appended, or
+///   * a full archive URL ending in `.tar.gz` / `.zip`, which is used verbatim.
+fn prebuilt_url() -> String {
+    let base = expand_env_vars(
+        &env::var("ZLM_RELEASE_URL").unwrap_or_else(|_| DEFAULT_ZLM_RELEASE_URL.to_string()),
+    );
+    if base.ends_with(".tar.gz") || base.ends_with(".zip") {
+        base
+    } else {
+        format!("{}/{}", base.trim_end_matches('/'), prebuilt_asset_name())
+    }
+}
+
+/// Download and extract a prebuilt ZLMediaKit release into `src_install_path()`,
+/// producing the same `include/` + `lib/` layout the rest of the build expects.
+///
+/// Implemented entirely with Rust crates (`ureq` + `flate2`/`tar` + `zip`) so the
+/// build does not depend on external `curl`/`tar`/`unzip` executables.
+fn download_prebuilt() -> io::Result<()> {
+    let url = prebuilt_url();
+    let install = src_install_path();
+    std::fs::create_dir_all(&install)?;
+
+    let is_zip = url.ends_with(".zip");
+
+    println!("cargo:warning=downloading prebuilt ZLMediaKit from {url}");
+
+    let resp = ureq::get(&url).call().map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            format!("failed to download prebuilt ZLMediaKit from {url}: {e}"),
+        )
+    })?;
+    // owned body reader: streams without ureq's default 10 MB read cap
+    let (_, body) = resp.into_parts();
+    let mut reader = body.into_reader();
+
+    // archive layout is `./include/...` and `./lib/...` at the top level
+    if is_zip {
+        // zip needs Read + Seek, so buffer the archive in memory first
+        let mut buf = Vec::new();
+        reader.read_to_end(&mut buf)?;
+        let mut zip = zip::ZipArchive::new(io::Cursor::new(buf)).map_err(|e| {
+            io::Error::new(io::ErrorKind::Other, format!("invalid zip archive: {e}"))
+        })?;
+        zip.extract(&install).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("failed to extract prebuilt zip archive: {e}"),
+            )
+        })?;
+    } else {
+        // stream gzip -> tar straight to disk, no intermediate buffer
+        let gz = flate2::read::GzDecoder::new(reader);
+        tar::Archive::new(gz).unpack(&install)?;
+    }
+
+    Ok(())
 }
 
 fn build() -> io::Result<()> {
@@ -195,6 +303,18 @@ fn expand_env_vars(value: &str) -> String {
 }
 
 fn buildgen() {
+    // re-run the build script when any of the controlling env vars change
+    for var in [
+        "ZLM_DIR",
+        "ZLM_RELEASE_URL",
+        "ZLM_BRANCH",
+        "ZLM_BUILD_FROM_SOURCE",
+        "ZLM_GIT",
+        "ZLM_GIT_ZONE",
+    ] {
+        println!("cargo:rerun-if-env-changed={var}");
+    }
+
     let is_static = is_static();
 
     let (zlm_install_include, zlm_install_lib) = if env::var("ZLM_DIR").is_ok() {
@@ -212,7 +332,16 @@ fn buildgen() {
             src_install_path().join("lib").to_string_lossy()
         );
 
-        if std::fs::metadata(&src_install_path().join("lib").join("libzlmediakit.a")).is_err() {
+        if use_prebuilt() {
+            // download prebuilt binaries from the release unless already extracted
+            if std::fs::metadata(&src_install_path().join("include").join("mk_mediakit.h"))
+                .is_err()
+            {
+                download_prebuilt().unwrap();
+            }
+        } else if std::fs::metadata(&src_install_path().join("lib").join("libzlmediakit.a"))
+            .is_err()
+        {
             build().unwrap();
         }
 

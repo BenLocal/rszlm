@@ -15,13 +15,18 @@ doctest = false
 openssl-sys = { version = "0.9", optional = true }
 
 [build-dependencies]
-bindgen = "0.71.1"
+bindgen = "0.72"
 pkg-config = "0.3"
 openssl-sys = { version = "0.9", optional = true }
 cc = "1"
 cmake = "0.1"
 num_cpus = "1.15"
 regex = "1.5"
+# prebuilt release download + extraction (pure-rust, no external commands)
+ureq = "3"
+flate2 = "1"
+tar = "0.4"
+zip = { version = "8", default-features = false, features = ["deflate"] }
 
 [features]
 default = []
