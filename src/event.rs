@@ -1,7 +1,10 @@
 use core::str;
 use once_cell::sync::Lazy;
 use rszlm_sys::*;
-use std::{ffi::CString, sync::RwLock};
+use std::{
+    ffi::CString,
+    sync::{Arc, RwLock},
+};
 
 use crate::{
     const_ptr_to_string, const_str_to_ptr,
@@ -13,27 +16,27 @@ pub static EVENTS: Lazy<RwLock<Event>> = Lazy::new(|| RwLock::new(Event::new()))
 #[derive(Default)]
 pub struct Event {
     inner: mk_events,
-    on_media_changed: Option<Box<dyn Fn(MediaChangedMessage) + Sync + Send>>,
-    on_media_publish: Option<Box<dyn Fn(MediaPublishMessage) + Sync + Send>>,
-    on_media_not_found: Option<Box<dyn Fn(MediaNotFoundMessage) -> bool + Sync + Send>>,
-    on_media_play: Option<Box<dyn Fn(MediaPlayMessage) -> anyhow::Result<()> + Sync + Send>>,
-    on_media_no_reader: Option<Box<dyn Fn(MediaNoReaderMessage) + Sync + Send>>,
-    on_http_request: Option<Box<dyn Fn(HttpRequestMessage) -> bool + Sync + Send>>,
-    on_http_before_access: Option<Box<dyn Fn(HttpBeforeRequestMessage) -> String + Sync + Send>>,
-    on_rtsp_get_realm: Option<Box<dyn Fn(RtspGetRealmMessage) + Sync + Send>>,
-    on_rtsp_auth: Option<Box<dyn Fn(RtspAuthMessage) + Sync + Send>>,
-    on_record_mp4: Option<Box<dyn Fn(RecordMp4Message) + Sync + Send>>,
-    on_record_ts: Option<Box<dyn Fn(RecordTsMessage) + Sync + Send>>,
-    on_shell_login: Option<Box<dyn Fn(ShellLoginMessage) + Sync + Send>>,
-    on_flow_report: Option<Box<dyn Fn(FlowReportMessage) + Sync + Send>>,
-    on_log: Option<Box<dyn Fn(LogMessage) + Sync + Send>>,
-    on_media_send_rtp_stop: Option<Box<dyn Fn(MediaSendRtpStopMessage) + Sync + Send>>,
-    on_rtc_sctp_connecting: Option<Box<dyn Fn(RtcSctpStateMessage) + Sync + Send>>,
-    on_rtc_sctp_connected: Option<Box<dyn Fn(RtcSctpStateMessage) + Sync + Send>>,
-    on_rtc_sctp_failed: Option<Box<dyn Fn(RtcSctpStateMessage) + Sync + Send>>,
-    on_rtc_sctp_closed: Option<Box<dyn Fn(RtcSctpStateMessage) + Sync + Send>>,
-    on_rtc_sctp_send: Option<Box<dyn Fn(RtcSctpStateMessage) + Sync + Send>>,
-    on_rtc_sctp_received: Option<Box<dyn Fn(RtcSctpStateMessage) + Sync + Send>>,
+    on_media_changed: Option<Arc<dyn Fn(MediaChangedMessage) + Sync + Send>>,
+    on_media_publish: Option<Arc<dyn Fn(MediaPublishMessage) + Sync + Send>>,
+    on_media_not_found: Option<Arc<dyn Fn(MediaNotFoundMessage) -> bool + Sync + Send>>,
+    on_media_play: Option<Arc<dyn Fn(MediaPlayMessage) -> anyhow::Result<()> + Sync + Send>>,
+    on_media_no_reader: Option<Arc<dyn Fn(MediaNoReaderMessage) + Sync + Send>>,
+    on_http_request: Option<Arc<dyn Fn(HttpRequestMessage) -> bool + Sync + Send>>,
+    on_http_before_access: Option<Arc<dyn Fn(HttpBeforeRequestMessage) -> String + Sync + Send>>,
+    on_rtsp_get_realm: Option<Arc<dyn Fn(RtspGetRealmMessage) + Sync + Send>>,
+    on_rtsp_auth: Option<Arc<dyn Fn(RtspAuthMessage) + Sync + Send>>,
+    on_record_mp4: Option<Arc<dyn Fn(RecordMp4Message) + Sync + Send>>,
+    on_record_ts: Option<Arc<dyn Fn(RecordTsMessage) + Sync + Send>>,
+    on_shell_login: Option<Arc<dyn Fn(ShellLoginMessage) + Sync + Send>>,
+    on_flow_report: Option<Arc<dyn Fn(FlowReportMessage) + Sync + Send>>,
+    on_log: Option<Arc<dyn Fn(LogMessage) + Sync + Send>>,
+    on_media_send_rtp_stop: Option<Arc<dyn Fn(MediaSendRtpStopMessage) + Sync + Send>>,
+    on_rtc_sctp_connecting: Option<Arc<dyn Fn(RtcSctpStateMessage) + Sync + Send>>,
+    on_rtc_sctp_connected: Option<Arc<dyn Fn(RtcSctpStateMessage) + Sync + Send>>,
+    on_rtc_sctp_failed: Option<Arc<dyn Fn(RtcSctpStateMessage) + Sync + Send>>,
+    on_rtc_sctp_closed: Option<Arc<dyn Fn(RtcSctpStateMessage) + Sync + Send>>,
+    on_rtc_sctp_send: Option<Arc<dyn Fn(RtcSctpStateMessage) + Sync + Send>>,
+    on_rtc_sctp_received: Option<Arc<dyn Fn(RtcSctpStateMessage) + Sync + Send>>,
 }
 
 impl Event {
@@ -50,13 +53,13 @@ impl Event {
     }
 
     pub fn on_media_changed(&mut self, cb: impl Fn(MediaChangedMessage) + Sync + Send + 'static) {
-        self.on_media_changed = Some(Box::new(cb));
+        self.on_media_changed = Some(Arc::new(cb));
         self.inner.on_mk_media_changed = Some(on_mk_media_changed);
         self.subscribe();
     }
 
     pub fn on_media_publish(&mut self, cb: impl Fn(MediaPublishMessage) + Sync + Send + 'static) {
-        self.on_media_publish = Some(Box::new(cb));
+        self.on_media_publish = Some(Arc::new(cb));
         self.inner.on_mk_media_publish = Some(on_mk_media_publish);
         self.subscribe();
     }
@@ -65,7 +68,7 @@ impl Event {
         &mut self,
         cb: impl Fn(MediaNotFoundMessage) -> bool + Sync + Send + 'static,
     ) {
-        self.on_media_not_found = Some(Box::new(cb));
+        self.on_media_not_found = Some(Arc::new(cb));
         self.inner.on_mk_media_not_found = Some(on_mk_media_not_found);
         self.subscribe();
     }
@@ -74,7 +77,7 @@ impl Event {
         &mut self,
         cb: impl Fn(MediaNoReaderMessage) + Sync + Send + 'static,
     ) {
-        self.on_media_no_reader = Some(Box::new(cb));
+        self.on_media_no_reader = Some(Arc::new(cb));
         self.inner.on_mk_media_no_reader = Some(on_mk_media_no_reader);
         self.subscribe();
     }
@@ -83,7 +86,7 @@ impl Event {
         &mut self,
         cb: impl Fn(MediaPlayMessage) -> anyhow::Result<()> + Sync + Send + 'static,
     ) {
-        self.on_media_play = Some(Box::new(cb));
+        self.on_media_play = Some(Arc::new(cb));
         self.inner.on_mk_media_play = Some(on_mk_media_play);
         self.subscribe();
     }
@@ -92,7 +95,7 @@ impl Event {
         &mut self,
         cb: impl Fn(HttpRequestMessage) -> bool + Sync + Send + 'static,
     ) {
-        self.on_http_request = Some(Box::new(cb));
+        self.on_http_request = Some(Arc::new(cb));
         self.inner.on_mk_http_request = Some(on_mk_http_request);
         self.subscribe();
     }
@@ -101,49 +104,49 @@ impl Event {
         &mut self,
         cb: impl Fn(HttpBeforeRequestMessage) -> String + Sync + Send + 'static,
     ) {
-        self.on_http_before_access = Some(Box::new(cb));
+        self.on_http_before_access = Some(Arc::new(cb));
         self.inner.on_mk_http_before_access = Some(on_mk_http_before_access);
         self.subscribe();
     }
 
     pub fn on_rtsp_get_realm(&mut self, cb: impl Fn(RtspGetRealmMessage) + Sync + Send + 'static) {
-        self.on_rtsp_get_realm = Some(Box::new(cb));
+        self.on_rtsp_get_realm = Some(Arc::new(cb));
         self.inner.on_mk_rtsp_get_realm = Some(on_mk_rtsp_get_realm);
         self.subscribe();
     }
 
     pub fn on_rtsp_auth(&mut self, cb: impl Fn(RtspAuthMessage) + Sync + Send + 'static) {
-        self.on_rtsp_auth = Some(Box::new(cb));
+        self.on_rtsp_auth = Some(Arc::new(cb));
         self.inner.on_mk_rtsp_auth = Some(on_mk_rtsp_auth);
         self.subscribe();
     }
 
     pub fn on_record_mp4(&mut self, cb: impl Fn(RecordMp4Message) + Sync + Send + 'static) {
-        self.on_record_mp4 = Some(Box::new(cb));
+        self.on_record_mp4 = Some(Arc::new(cb));
         self.inner.on_mk_record_mp4 = Some(on_mk_record_mp4);
         self.subscribe();
     }
 
     pub fn on_record_ts(&mut self, cb: impl Fn(RecordTsMessage) + Sync + Send + 'static) {
-        self.on_record_ts = Some(Box::new(cb));
+        self.on_record_ts = Some(Arc::new(cb));
         self.inner.on_mk_record_ts = Some(on_mk_record_ts);
         self.subscribe();
     }
 
     pub fn on_shell_login(&mut self, cb: impl Fn(ShellLoginMessage) + Sync + Send + 'static) {
-        self.on_shell_login = Some(Box::new(cb));
+        self.on_shell_login = Some(Arc::new(cb));
         self.inner.on_mk_shell_login = Some(on_mk_shell_login);
         self.subscribe();
     }
 
     pub fn on_flow_report(&mut self, cb: impl Fn(FlowReportMessage) + Sync + Send + 'static) {
-        self.on_flow_report = Some(Box::new(cb));
+        self.on_flow_report = Some(Arc::new(cb));
         self.inner.on_mk_flow_report = Some(on_mk_flow_report);
         self.subscribe();
     }
 
     pub fn on_log(&mut self, cb: impl Fn(LogMessage) + Sync + Send + 'static) {
-        self.on_log = Some(Box::new(cb));
+        self.on_log = Some(Arc::new(cb));
         self.inner.on_mk_log = Some(on_mk_log);
         self.subscribe();
     }
@@ -152,7 +155,7 @@ impl Event {
         &mut self,
         cb: impl Fn(MediaSendRtpStopMessage) + Sync + Send + 'static,
     ) {
-        self.on_media_send_rtp_stop = Some(Box::new(cb));
+        self.on_media_send_rtp_stop = Some(Arc::new(cb));
         self.inner.on_mk_media_send_rtp_stop = Some(on_mk_media_send_rtp_stop);
         self.subscribe();
     }
@@ -161,7 +164,7 @@ impl Event {
         &mut self,
         cb: impl Fn(RtcSctpStateMessage) + Sync + Send + 'static,
     ) {
-        self.on_rtc_sctp_connecting = Some(Box::new(cb));
+        self.on_rtc_sctp_connecting = Some(Arc::new(cb));
         self.inner.on_mk_rtc_sctp_connecting = Some(on_mk_rtc_sctp_connecting);
         self.subscribe();
     }
@@ -170,19 +173,19 @@ impl Event {
         &mut self,
         cb: impl Fn(RtcSctpStateMessage) + Sync + Send + 'static,
     ) {
-        self.on_rtc_sctp_connected = Some(Box::new(cb));
+        self.on_rtc_sctp_connected = Some(Arc::new(cb));
         self.inner.on_mk_rtc_sctp_connected = Some(on_mk_rtc_sctp_connected);
         self.subscribe();
     }
 
     pub fn on_rtc_sctp_closed(&mut self, cb: impl Fn(RtcSctpStateMessage) + Sync + Send + 'static) {
-        self.on_rtc_sctp_closed = Some(Box::new(cb));
+        self.on_rtc_sctp_closed = Some(Arc::new(cb));
         self.inner.on_mk_rtc_sctp_closed = Some(on_mk_rtc_sctp_closed);
         self.subscribe();
     }
 
     pub fn on_rtc_sctp_send(&mut self, cb: impl Fn(RtcSctpStateMessage) + Sync + Send + 'static) {
-        self.on_rtc_sctp_send = Some(Box::new(cb));
+        self.on_rtc_sctp_send = Some(Arc::new(cb));
         self.inner.on_mk_rtc_sctp_send = Some(on_mk_rtc_sctp_send);
         self.subscribe();
     }
@@ -191,13 +194,13 @@ impl Event {
         &mut self,
         cb: impl Fn(RtcSctpStateMessage) + Sync + Send + 'static,
     ) {
-        self.on_rtc_sctp_received = Some(Box::new(cb));
+        self.on_rtc_sctp_received = Some(Arc::new(cb));
         self.inner.on_mk_rtc_sctp_received = Some(on_mk_rtc_sctp_received);
         self.subscribe();
     }
 
     pub fn on_rtc_sctp_failed(&mut self, cb: impl Fn(RtcSctpStateMessage) + Sync + Send + 'static) {
-        self.on_rtc_sctp_failed = Some(Box::new(cb));
+        self.on_rtc_sctp_failed = Some(Arc::new(cb));
         self.inner.on_mk_rtc_sctp_failed = Some(on_mk_rtc_sctp_failed);
         self.subscribe();
     }
@@ -214,7 +217,8 @@ pub enum RtcSctpStateMessage {
 
 extern "C" fn on_mk_rtc_sctp_failed(rtc_transport: mk_rtc_transport) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_failed {
+        let cb = EVENTS.read().unwrap().on_rtc_sctp_failed.clone();
+        if let Some(cb) = cb {
             cb(RtcSctpStateMessage::Failed(rtc_transport.into()));
         }
     });
@@ -228,7 +232,8 @@ extern "C" fn on_mk_rtc_sctp_received(
     len: usize,
 ) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_received {
+        let cb = EVENTS.read().unwrap().on_rtc_sctp_received.clone();
+        if let Some(cb) = cb {
             let data = unsafe { std::slice::from_raw_parts(msg, len) };
             cb(RtcSctpStateMessage::Received(
                 rtc_transport.into(),
@@ -242,7 +247,8 @@ extern "C" fn on_mk_rtc_sctp_received(
 
 extern "C" fn on_mk_rtc_sctp_send(rtc_transport: mk_rtc_transport, msg: *const u8, len: usize) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_send {
+        let cb = EVENTS.read().unwrap().on_rtc_sctp_send.clone();
+        if let Some(cb) = cb {
             let data = unsafe { std::slice::from_raw_parts(msg, len) };
             cb(RtcSctpStateMessage::Send(
                 rtc_transport.into(),
@@ -254,7 +260,8 @@ extern "C" fn on_mk_rtc_sctp_send(rtc_transport: mk_rtc_transport, msg: *const u
 
 extern "C" fn on_mk_rtc_sctp_closed(rtc_transport: mk_rtc_transport) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_closed {
+        let cb = EVENTS.read().unwrap().on_rtc_sctp_closed.clone();
+        if let Some(cb) = cb {
             cb(RtcSctpStateMessage::Closed(rtc_transport.into()));
         }
     });
@@ -262,7 +269,8 @@ extern "C" fn on_mk_rtc_sctp_closed(rtc_transport: mk_rtc_transport) {
 
 extern "C" fn on_mk_rtc_sctp_connected(rtc_transport: mk_rtc_transport) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_connected {
+        let cb = EVENTS.read().unwrap().on_rtc_sctp_connected.clone();
+        if let Some(cb) = cb {
             cb(RtcSctpStateMessage::Connected(rtc_transport.into()));
         }
     });
@@ -270,7 +278,8 @@ extern "C" fn on_mk_rtc_sctp_connected(rtc_transport: mk_rtc_transport) {
 
 extern "C" fn on_mk_rtc_sctp_connecting(rtc_transport: mk_rtc_transport) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_rtc_sctp_connecting {
+        let cb = EVENTS.read().unwrap().on_rtc_sctp_connecting.clone();
+        if let Some(cb) = cb {
             cb(RtcSctpStateMessage::Connecting(rtc_transport.into()));
         }
     });
@@ -294,7 +303,8 @@ extern "C" fn on_mk_media_send_rtp_stop(
     msg: *const ::std::os::raw::c_char,
 ) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_media_send_rtp_stop {
+        let cb = EVENTS.read().unwrap().on_media_send_rtp_stop.clone();
+        if let Some(cb) = cb {
             let (vhost, app, stream, ssrc, err, msg) = unsafe {
                 (
                     const_ptr_to_string!(vhost),
@@ -334,7 +344,8 @@ extern "C" fn on_mk_log(
     message: *const ::std::os::raw::c_char,
 ) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_log {
+        let cb = EVENTS.read().unwrap().on_log.clone();
+        if let Some(cb) = cb {
             let (file, function, message) = unsafe {
                 (
                     const_ptr_to_string!(file),
@@ -370,7 +381,8 @@ extern "C" fn on_mk_flow_report(
     sender: mk_sock_info,
 ) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_flow_report {
+        let cb = EVENTS.read().unwrap().on_flow_report.clone();
+        if let Some(cb) = cb {
             cb(FlowReportMessage {
                 url_info: url_info.into(),
                 total_bytes,
@@ -396,7 +408,8 @@ extern "C" fn on_mk_shell_login(
     sender: mk_sock_info,
 ) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_shell_login {
+        let cb = EVENTS.read().unwrap().on_shell_login.clone();
+        if let Some(cb) = cb {
             let (u, p) = unsafe {
                 (
                     const_ptr_to_string!(user_name),
@@ -419,7 +432,8 @@ pub struct RecordTsMessage {
 
 extern "C" fn on_mk_record_ts(ts: mk_record_info) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_record_ts {
+        let cb = EVENTS.read().unwrap().on_record_ts.clone();
+        if let Some(cb) = cb {
             cb(RecordTsMessage {
                 ts: RecordInfo::from(ts),
             })
@@ -433,7 +447,8 @@ pub struct RecordMp4Message {
 
 extern "C" fn on_mk_record_mp4(mp4: mk_record_info) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_record_mp4 {
+        let cb = EVENTS.read().unwrap().on_record_mp4.clone();
+        if let Some(cb) = cb {
             cb(RecordMp4Message {
                 mp4: RecordInfo::from(mp4),
             })
@@ -450,7 +465,8 @@ extern "C" fn on_mk_rtsp_auth(
     sender: mk_sock_info,
 ) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_rtsp_auth {
+        let cb = EVENTS.read().unwrap().on_rtsp_auth.clone();
+        if let Some(cb) = cb {
             let (realm, user_name) =
                 unsafe { (const_ptr_to_string!(realm), const_ptr_to_string!(user_name)) };
 
@@ -481,7 +497,8 @@ extern "C" fn on_mk_rtsp_get_realm(
     sender: mk_sock_info,
 ) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_rtsp_get_realm {
+        let cb = EVENTS.read().unwrap().on_rtsp_get_realm.clone();
+        if let Some(cb) = cb {
             cb(RtspGetRealmMessage {
                 url_info: url_info.into(),
                 sender: sender.into(),
@@ -570,7 +587,8 @@ extern "C" fn on_mk_http_before_access(
     sender: mk_sock_info,
 ) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_http_before_access {
+        let cb = EVENTS.read().unwrap().on_http_before_access.clone();
+        if let Some(cb) = cb {
             let old_path = unsafe { const_ptr_to_string!(path) };
             // ZLMediaKit expects the redirect path to be written *in place* into the
             // existing `path` buffer (see mk_events.h: "覆盖path参数...可以重定向").
@@ -614,7 +632,8 @@ extern "C" fn on_mk_http_request(
     sender: mk_sock_info,
 ) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_http_request {
+        let cb = EVENTS.read().unwrap().on_http_request.clone();
+        if let Some(cb) = cb {
             let res = cb(HttpRequestMessage {
                 sender: sender.into(),
                 parser: parser.into(),
@@ -680,7 +699,8 @@ pub(crate) extern "C" fn on_mk_media_changed(
     sender: mk_media_source,
 ) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_media_changed {
+        let cb = EVENTS.read().unwrap().on_media_changed.clone();
+        if let Some(cb) = cb {
             match regist {
                 0 => cb(MediaChangedMessage::UnRegist(sender.into())),
                 1 => cb(MediaChangedMessage::Regist(sender.into())),
@@ -697,7 +717,8 @@ pub enum MediaChangedMessage {
 
 pub(crate) extern "C" fn on_mk_media_no_reader(sender: mk_media_source) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_media_no_reader {
+        let cb = EVENTS.read().unwrap().on_media_no_reader.clone();
+        if let Some(cb) = cb {
             cb(MediaNoReaderMessage {
                 sender: sender.into(),
             });
@@ -715,7 +736,8 @@ pub(crate) extern "C" fn on_mk_media_not_found(
     sender: mk_sock_info,
 ) -> std::os::raw::c_int {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_media_not_found {
+        let cb = EVENTS.read().unwrap().on_media_not_found.clone();
+        if let Some(cb) = cb {
             return cb(MediaNotFoundMessage {
                 url_info: url_info.into(),
                 sock_info: sender.into(),
@@ -739,7 +761,8 @@ pub(crate) extern "C" fn on_mk_media_play(
 ) {
     crate::ffi_guard(|| {
         let invoker = AuthInvoker::new(invoker);
-        if let Some(cb) = &EVENTS.read().unwrap().on_media_play {
+        let cb = EVENTS.read().unwrap().on_media_play.clone();
+        if let Some(cb) = cb {
             let url_info = MediaInfo::from(url_info);
             let sock_info = SockInfo::from(sender);
 
@@ -768,7 +791,8 @@ pub(crate) extern "C" fn on_mk_media_publish(
     sender: mk_sock_info,
 ) {
     crate::ffi_guard(|| {
-        if let Some(cb) = &EVENTS.read().unwrap().on_media_publish {
+        let cb = EVENTS.read().unwrap().on_media_publish.clone();
+        if let Some(cb) = cb {
             cb(MediaPublishMessage {
                 url_info: url_info.into(),
                 auth_invoker: invoker.into(),
