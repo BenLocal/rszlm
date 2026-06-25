@@ -1,8 +1,8 @@
 [env]
 # 本地开发默认：使用 ./build_zlm.sh 编译安装到 ZLMediaKit/build/installer
 # （含 include/lib/bin，支持 static + webrtc 链接）。优先级最高。
-ZLM_DIR = { value = "ZLMediaKit/build/installer", relative = true }
-PATH = "${ZLM_DIR}/bin:${PATH}"
+# ZLM_DIR = { value = "ZLMediaKit/build/installer", relative = true }
+# PATH = "${ZLM_DIR}/bin:${PATH}"
 
 # 回退（CI / 下游 / 无本地安装）：注释掉上面的 ZLM_DIR 两行后，动态库构建会
 # 从此地址下载预编译产物。固定到具体 release tag，避免依赖 GitHub 的
