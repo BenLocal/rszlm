@@ -30,7 +30,9 @@ impl ProxyPlayer {
 
     pub fn on_close<T>(&self, cb: T)
     where
-        T: FnMut(i32, String, i32) + 'static,
+        // ZLMediaKit invokes this on its own poller thread, so the closure
+        // must be safe to move to / share across threads.
+        T: FnMut(i32, String, i32) + Send + Sync + 'static,
     {
         self.on_close_inner(Box::new(cb))
     }
@@ -139,7 +141,7 @@ impl ProxyPlayerBuilder {
     }
 }
 
-pub type OnCloseCallbackFn = Box<dyn FnMut(i32, String, i32) + 'static>;
+pub type OnCloseCallbackFn = Box<dyn FnMut(i32, String, i32) + Send + Sync + 'static>;
 
 /// Frees the boxed callback when ZLMediaKit's shared_ptr deleter fires.
 extern "C" fn free_on_close_cb(user_data: *mut ::std::os::raw::c_void) {

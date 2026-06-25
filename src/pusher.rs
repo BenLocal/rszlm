@@ -30,7 +30,7 @@ impl Pusher {
 
     pub fn on_result<T>(&self, cb: T)
     where
-        T: FnMut(i32, String) + 'static,
+        T: FnMut(i32, String) + Send + Sync + 'static,
     {
         self.on_result_inner(Box::new(cb))
     }
@@ -48,7 +48,7 @@ impl Pusher {
 
     pub fn on_shutdown<T>(&self, cb: T)
     where
-        T: FnMut(i32, String) + 'static,
+        T: FnMut(i32, String) + Send + Sync + 'static,
     {
         self.on_shutdown_inner(Box::new(cb))
     }
@@ -121,7 +121,7 @@ impl PusherBuilder {
     }
 }
 
-pub type OnEventCallbackFn = Box<dyn FnMut(i32, String) + 'static>;
+pub type OnEventCallbackFn = Box<dyn FnMut(i32, String) + Send + Sync + 'static>;
 
 /// Frees the boxed callback when ZLMediaKit's shared_ptr deleter fires
 /// (shared by `set_on_result2` / `set_on_shutdown2`).

@@ -65,7 +65,7 @@ impl Drop for Frame {
 unsafe impl Send for Frame {}
 unsafe impl Sync for Frame {}
 
-pub type OnH264SplitterFrameFn = Box<dyn FnMut(&[u8]) + 'static>;
+pub type OnH264SplitterFrameFn = Box<dyn FnMut(&[u8]) + Send + Sync + 'static>;
 unsafe extern "C" fn on_mk_h264_splitter_frame(
     user_data: *mut ::std::os::raw::c_void,
     _splitter: mk_h264_splitter,

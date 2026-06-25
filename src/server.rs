@@ -52,7 +52,7 @@ impl RtpServer {
 
     pub fn on_detach<T>(&self, cb: T)
     where
-        T: FnMut() + 'static,
+        T: FnMut() + Send + Sync + 'static,
     {
         self.on_detach_inner(Box::new(cb));
     }
@@ -70,7 +70,7 @@ impl RtpServer {
 
     pub fn connect<T>(&self, url: &str, dst_port: u16, cb: T)
     where
-        T: FnMut(i32, String, i32) + 'static,
+        T: FnMut(i32, String, i32) + Send + Sync + 'static,
     {
         self.connect_inner(url, dst_port, Box::new(cb));
     }
@@ -90,7 +90,7 @@ impl RtpServer {
     }
 }
 
-type OnRtpServerDetachCallbackFn = Box<dyn FnMut() + 'static>;
+type OnRtpServerDetachCallbackFn = Box<dyn FnMut() + Send + Sync + 'static>;
 
 /// Frees the boxed detach callback when ZLMediaKit's shared_ptr deleter fires.
 extern "C" fn free_on_detach_cb(user_data: *mut ::std::os::raw::c_void) {
@@ -108,7 +108,7 @@ extern "C" fn on_rtp_server_detach(user_data: *mut ::std::os::raw::c_void) {
     };
 }
 
-type OnRtpServerConnectedCallbackFn = Box<dyn FnMut(i32, String, i32) + 'static>;
+type OnRtpServerConnectedCallbackFn = Box<dyn FnMut(i32, String, i32) + Send + Sync + 'static>;
 
 /// Frees the boxed connected callback when ZLMediaKit's shared_ptr deleter fires.
 extern "C" fn free_on_connected_cb(user_data: *mut ::std::os::raw::c_void) {
