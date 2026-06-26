@@ -184,7 +184,9 @@ fn build() -> io::Result<()> {
 
         Command::new("git")
             .arg("submodule")
-            .args(vec!["update", "--init"])
+            // --recursive: ZLMediaKit has nested submodules (matches build_zlm.sh);
+            // without it a from-source build can fail on missing nested sources.
+            .args(vec!["update", "--init", "--recursive"])
             .current_dir(src)
             .status()?;
     }
